@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Prop Placer</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app" class="hidden">
+  <div class="panel left">
+    <h2>Prop Library</h2>
+    <input id="searchBox" type="text" placeholder="Search 14,856 props or type exact model..." />
+    <div id="customSpawnRow">
+      <button id="spawnCustomBtn">Spawn typed model</button>
+    </div>
+    <div id="propCategories"></div>
+  </div>
+
+  <div class="panel right">
+    <h2>Map</h2>
+    <label class="fieldLabel" for="mapNameInput">Map name (used by Save Map, Load, and Export to .ymap below)</label>
+    <div class="mapRow">
+      <input id="mapNameInput" type="text" value="default" placeholder="Map name to save/load..." />
+      <button id="loadMapBtn">Load</button>
+    </div>
+    <div class="placedList" id="placedList"></div>
+    <div class="footerButtons">
+      <button id="saveMapBtn" class="primary">Save Map</button>
+      <button id="exportBtn" class="success">Export to .ymap</button>
+      <button id="clearBtn" class="danger">Clear All (unsaved)</button>
+      <button id="closeBtn">Close (or press F6)</button>
+    </div>
+    <div class="hint">
+      Arrows: move &middot; PageUp/PageDown: height &middot; Q/E: rotate yaw &middot; [ / ]: pitch &middot; Enter: confirm &middot; Backspace/Esc: cancel &middot; Hold Shift: faster<br>
+      Delete key (in world, outside placement mode): aim your gun at a placed prop to remove it, or aim at any other world prop to remove it persistently for everyone
+    </div>
+  </div>
+</div>
+
+<!-- Placement Panel: shown only while a prop is being positioned. Lives
+     outside #app so it can stay visible while the main library/map panel
+     is hidden. Small, semi-transparent, and draggable (drag the header)
+     so it never has to sit on top of the prop being placed. Every button
+     here is optional - all keybinds (arrows, Q/E, PageUp/Down, [ / ],
+     Enter, Backspace/Esc) still work at the same time. -->
+<div id="placementPanel" class="placementPanel hidden">
+  <div id="placementHeader" class="placementHeader">
+    <span>Placing: <span id="placementModelLabel">prop</span></span>
+    <span class="dragHint" title="Drag to move this panel">&#10021;</span>
+  </div>
+  <div class="placementBody">
+    <div class="padGrid">
+      <div></div>
+      <button class="padBtn" data-move="up" title="Move forward (Up Arrow)">&#9650;</button>
+      <div></div>
+      <button class="padBtn" data-move="left" title="Move left (Left Arrow)">&#9664;</button>
+      <button class="padBtn subtle" data-height="up" title="Raise (Page Up)">&#8593;Z</button>
+      <button class="padBtn" data-move="right" title="Move right (Right Arrow)">&#9654;</button>
+      <div></div>
+      <button class="padBtn" data-move="down" title="Move back (Down Arrow)">&#9660;</button>
+      <button class="padBtn subtle" data-height="down" title="Lower (Page Down)">&#8595;Z</button>
+    </div>
+    <div class="rowGroup">
+      <button class="padBtn wide" data-rotate="left" title="Rotate left (Q)">&#8634; Yaw</button>
+      <button class="padBtn wide" data-rotate="right" title="Rotate right (E)">Yaw &#8635;</button>
+    </div>
+    <div class="rowGroup">
+      <button class="padBtn wide" data-pitch="down" title="Pitch down ([)">&#8634; Pitch</button>
+      <button class="padBtn wide" data-pitch="up" title="Pitch up (])">Pitch &#8635;</button>
+    </div>
+    <label class="fastToggle">
+      <input type="checkbox" id="fastToggle" />
+      Fast movement (Shift)
+    </label>
+    <div class="rowGroup">
+      <button id="placementConfirmBtn" class="success wide" title="Confirm (Enter)">Confirm</button>
+      <button id="placementCancelBtn" class="danger wide" title="Cancel (Backspace/Esc)">Cancel</button>
+    </div>
+    <div class="hint small">Keybinds still work: Arrows/PageUp-Down/Q-E/[ ]/Enter/Esc.</div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
