@@ -118,6 +118,139 @@ RegisterNetEvent('rex-mapeditor:server:removeFavorite', function(model)
 end)
 
 -- ---------------------------------------------------------------------
+-- Custom Prop Library entries: lets tool users add their own props to the
+-- library (e.g. models not in the bundled Spooni list) and remove entries
+-- they don't want to see (from either the bundled list or their own custom
+-- additions). Stored as a small overlay rather than rewriting the 14,856-
+-- entry props.json on disk - the client merges this on top of the static
+-- list it already fetched. Shared server-wide, same as favorites.
+-- ---------------------------------------------------------------------
+local CUSTOM_PROPS_FILE = 'data/custom_props.json'
+
+local function loadCustomPropsFile()
+    local raw = LoadResourceFile(GetCurrentResourceName(), CUSTOM_PROPS_FILE)
+    local defaults = { additions = {}, removals = {}, overrides = {} }
+    if not raw then return defaults end
+    local ok, decoded = pcall(json.decode, raw)
+    if not ok or type(decoded) ~= 'table' then return defaults end
+    decoded.additions = decoded.additions or {}
+    decoded.removals = decoded.removals or {}
+    decoded.overrides = decoded.overrides or {}
+    return decoded
+end
+
+local function saveCustomPropsFile(data)
+    SaveResourceFile(GetCurrentResourceName(), CUSTOM_PROPS_FILE, json.encode(data), -1)
+end
+
+RegisterNetEvent('rex-mapeditor:server:requestCustomProps', function()
+    local src = source
+    TriggerClientEvent('rex-mapeditor:client:customPropsList', src, loadCustomPropsFile())
+end)
+
+-- Add a prop to the library. If it was previously removed (blacklisted),
+-- adding it back simply clears that removal instead of duplicating it.
+RegisterNetEvent('rex-mapeditor:server:addLibraryProp', function(model, label, category)
+    local src = source
+    if not isAuthorized(src) then return end
+    model = tostring(model or ''):gsub('%s+', '')
+    if model == '' then return end
+    label = tostring(label ~= nil and label ~= '' and label or model)
+    category = tostring(category ~= nil and category ~= '' and category or 'Custom')
+
+    local data = loadCustomPropsFile()
+
+    -- Clear any existing blacklist entry for this model - re-adding it
+    -- should make it visible again even if it was previously removed.
+    local removals = {}
+    for _, m in ipairs(data.removals) do
+        if m ~= model then removals[#removals + 1] = m end
+    end
+    data.removals = removals
+
+    for _, p in ipairs(data.additions) do
+        if p.model == model then
+            TriggerClientEvent('rex-mapeditor:client:customPropsList', -1, data)
+            return
+        end
+    end
+    data.additions[#data.additions + 1] = { model = model, label = label, category = category }
+    data.overrides[model] = nil
+    saveCustomPropsFile(data)
+    TriggerClientEvent('rex-mapeditor:client:customPropsList', -1, data)
+end)
+
+-- Edit an existing library prop's model, label, and/or category. Label and
+-- category may be saved blank - only the identifying origModel is required
+-- to know which entry is being edited. For a prop the user added themselves
+-- this updates that entry directly (including renaming its model in place);
+-- for a prop that came from the bundled props.json list, this stores an
+-- override on top of it instead of editing that file, keyed by origModel
+-- (the model as it appears in props.json) so repeated edits keep landing on
+-- the same saved override even after the displayed model has been renamed.
+-- A blank new model is treated as "no rename" rather than actually blanking
+-- out the model, since an empty model can't be spawned.
+RegisterNetEvent('rex-mapeditor:server:editLibraryProp', function(origModel, newModel, label, category)
+    local src = source
+    if not isAuthorized(src) then return end
+    origModel = tostring(origModel or '')
+    if origModel == '' then return end
+    newModel = tostring(newModel or ''):gsub('^%s+', ''):gsub('%s+$', '')
+    label = tostring(label or ''):gsub('^%s+', ''):gsub('%s+$', '')
+    category = tostring(category or ''):gsub('^%s+', ''):gsub('%s+$', '')
+
+    local data = loadCustomPropsFile()
+
+    local foundCustom = false
+    for _, p in ipairs(data.additions) do
+        if p.model == origModel then
+            if newModel ~= '' then p.model = newModel end
+            p.label = label
+            p.category = category
+            foundCustom = true
+            break
+        end
+    end
+
+    if not foundCustom then
+        data.overrides[origModel] = { model = newModel, label = label, category = category }
+    end
+
+    saveCustomPropsFile(data)
+    TriggerClientEvent('rex-mapeditor:client:customPropsList', -1, data)
+end)
+
+-- Remove a prop from the library: drops it from custom additions if it was
+-- one, and blacklists the model so it's also hidden if it came from the
+-- bundled props.json list.
+RegisterNetEvent('rex-mapeditor:server:removeLibraryProp', function(model)
+    local src = source
+    if not isAuthorized(src) then return end
+    model = tostring(model or '')
+    if model == '' then return end
+
+    local data = loadCustomPropsFile()
+
+    local additions = {}
+    for _, p in ipairs(data.additions) do
+        if p.model ~= model then additions[#additions + 1] = p end
+    end
+    data.additions = additions
+    data.overrides[model] = nil
+
+    local alreadyBlacklisted = false
+    for _, m in ipairs(data.removals) do
+        if m == model then alreadyBlacklisted = true break end
+    end
+    if not alreadyBlacklisted then
+        data.removals[#data.removals + 1] = model
+    end
+
+    saveCustomPropsFile(data)
+    TriggerClientEvent('rex-mapeditor:client:customPropsList', -1, data)
+end)
+
+-- ---------------------------------------------------------------------
 -- Save the full current placement state for a map
 -- ---------------------------------------------------------------------
 RegisterNetEvent('rex-mapeditor:server:saveMap', function(mapname, props)

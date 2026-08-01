@@ -13,6 +13,12 @@
     <div id="customSpawnRow">
       <button id="spawnCustomBtn">Spawn typed model</button>
     </div>
+    <div id="addPropRow">
+      <input id="addPropModel" type="text" placeholder="Model name to add..." />
+      <input id="addPropLabel" type="text" placeholder="Label (optional)" />
+      <input id="addPropCategory" type="text" placeholder="Category (optional)" />
+      <button id="addPropBtn">+ Add to Library</button>
+    </div>
     <div id="propCategories"></div>
   </div>
 
@@ -77,6 +83,19 @@
       <button id="placementCancelBtn" class="danger wide" title="Cancel (Backspace/Esc)">Cancel</button>
     </div>
     <div class="hint small">Keybinds still work: Arrows/PageUp-Down/Q-E/[ ]/Enter/Esc.</div>
+  </div>
+</div>
+
+<!-- Confirm modal: native window.confirm()/alert() aren't reliable inside
+     the CEF-based NUI browser (can hang and lock up the whole menu), so
+     anything that needs a "are you sure?" prompt uses this instead. -->
+<div id="confirmOverlay" class="confirmOverlay hidden">
+  <div class="confirmBox">
+    <div id="confirmMessage" class="confirmMessage"></div>
+    <div class="rowGroup">
+      <button id="confirmCancelBtn" class="wide">Cancel</button>
+      <button id="confirmOkBtn" class="danger wide">Confirm</button>
+    </div>
   </div>
 </div>
 

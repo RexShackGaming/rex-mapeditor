@@ -628,6 +628,7 @@ local function openMenu()
     SendNUIMessage({ action = 'open', mapname = currentMap, openKey = Config.OpenKey })
     refreshEntityList()
     TriggerServerEvent('rex-mapeditor:server:requestFavorites')
+    TriggerServerEvent('rex-mapeditor:server:requestCustomProps')
 end
 
 local function closeMenu()
@@ -806,6 +807,21 @@ RegisterNUICallback('unfavoriteProp', function(data, cb)
     cb('ok')
 end)
 
+RegisterNUICallback('addLibraryProp', function(data, cb)
+    TriggerServerEvent('rex-mapeditor:server:addLibraryProp', data.model, data.label, data.category)
+    cb('ok')
+end)
+
+RegisterNUICallback('removeLibraryProp', function(data, cb)
+    TriggerServerEvent('rex-mapeditor:server:removeLibraryProp', data.model)
+    cb('ok')
+end)
+
+RegisterNUICallback('editLibraryProp', function(data, cb)
+    TriggerServerEvent('rex-mapeditor:server:editLibraryProp', data.model, data.newModel, data.label, data.category)
+    cb('ok')
+end)
+
 RegisterNUICallback('setMapName', function(data, cb)
     currentMap = data.mapname
     cb('ok')
@@ -859,6 +875,13 @@ end)
 -- whenever any player favorites/unfavorites a prop.
 RegisterNetEvent('rex-mapeditor:client:favoritesList', function(favorites)
     SendNUIMessage({ action = 'favoritesList', favorites = favorites })
+end)
+
+-- Shared custom-library overlay (user-added props + removed/blacklisted
+-- models), sent on menu open and rebroadcast to everyone whenever any
+-- player adds or removes a library entry.
+RegisterNetEvent('rex-mapeditor:client:customPropsList', function(customProps)
+    SendNUIMessage({ action = 'customPropsList', customProps = customProps })
 end)
 
 -- A world prop was removed (by anyone, on this or another client) - apply it

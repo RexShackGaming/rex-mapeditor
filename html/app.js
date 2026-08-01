@@ -13,6 +13,11 @@ let spooniLoaded = false;
 let currentPlaced = [];
 let favorites = [];         // [{model, label}], persisted server-side, shared by all tool users
 let favoriteModels = new Set();
+let customAdditions = [];   // [{model, label, category}], user-added library props, persisted server-side, shared by all tool users
+let customModelsSet = new Set(); // models of the entries in customAdditions - lets a row know it's user-added (label+category directly editable) vs bundled (label-only override)
+let customRemovals = new Set(); // models blacklisted from the library (hides them from the bundled list or from customAdditions)
+let customOverrides = {};   // { [model]: {label} }, label overrides for bundled (non-custom) props, persisted server-side, shared by all tool users
+let editingKey = null;      // origModel of the row currently shown in inline edit mode in the Prop Library, if any
 let openKey = 'F6';         // from Config.OpenKey - also closes the menu while it's open (see keydown listener below)
 
 const MAX_RENDERED_ITEMS = 250; // cap DOM nodes when searching the full Spooni library
@@ -28,6 +33,38 @@ async function loadSpooniProps() {
   spooniLoaded = true;
 }
 
+// Custom confirm modal - window.confirm() can hang/lock the CEF NUI
+// browser, so anything needing an "are you sure?" prompt uses this
+// promise-based modal instead. Resolves true/false.
+const confirmOverlay = document.getElementById('confirmOverlay');
+const confirmMessage = document.getElementById('confirmMessage');
+const confirmOkBtn = document.getElementById('confirmOkBtn');
+const confirmCancelBtn = document.getElementById('confirmCancelBtn');
+let confirmResolve = null;
+
+function showConfirm(message) {
+  confirmMessage.textContent = message;
+  confirmOverlay.classList.remove('hidden');
+  return new Promise((resolve) => {
+    confirmResolve = resolve;
+  });
+}
+
+function closeConfirm(result) {
+  confirmOverlay.classList.add('hidden');
+  if (confirmResolve) {
+    const resolve = confirmResolve;
+    confirmResolve = null;
+    resolve(result);
+  }
+}
+
+confirmOkBtn.onclick = () => closeConfirm(true);
+confirmCancelBtn.onclick = () => closeConfirm(false);
+confirmOverlay.addEventListener('click', (e) => {
+  if (e.target === confirmOverlay) closeConfirm(false);
+});
+
 function post(name, data) {
   return fetch(`https://${GetParentResourceName()}/${name}`, {
     method: 'POST',
@@ -36,14 +73,91 @@ function post(name, data) {
   }).catch(() => {});
 }
 
-function renderCategoryList(container, categories, filter, remainingBudget) {
+// Every row is rendered from a resolved entry shape, computed upstream by
+// the build*Entries() functions below:
+//   { model, label, category, origModel, isCustom }
+// - model/label/category are what's actually shown/spawned (after any
+//   override or direct edit has been applied).
+// - origModel is the STABLE identity used to target edits/removals/favorites
+//   server-side: for a custom addition it's just its own model; for a
+//   bundled (Spooni) prop it's the model as it appears in props.json, even
+//   after the display model has been renamed via an override, so repeated
+//   edits keep landing on the same saved override slot instead of creating
+//   new ones.
+
+// Inline edit form shown in place of a row's label/buttons while it's being
+// edited. Model, label, and category are all editable and all saveable
+// blank - nothing here is required to submit.
+// Small persistent label above an edit-form input, since the input's
+// placeholder text disappears as soon as it has a value (which every field
+// here starts pre-filled with).
+function addFieldLabel(container, text) {
+  const el = document.createElement('label');
+  el.className = 'fieldLabel';
+  el.textContent = text;
+  container.appendChild(el);
+}
+
+function buildEditForm(entry) {
+  const wrap = document.createElement('div');
+  wrap.className = 'editForm';
+
+  addFieldLabel(wrap, 'Model');
+  const modelInput = document.createElement('input');
+  modelInput.type = 'text';
+  modelInput.value = entry.model;
+  modelInput.placeholder = 'Model';
+  wrap.appendChild(modelInput);
+
+  addFieldLabel(wrap, 'Label');
+  const labelInput = document.createElement('input');
+  labelInput.type = 'text';
+  labelInput.value = entry.label;
+  labelInput.placeholder = 'Label';
+  wrap.appendChild(labelInput);
+
+  addFieldLabel(wrap, 'Category');
+  const categoryInput = document.createElement('input');
+  categoryInput.type = 'text';
+  categoryInput.value = entry.category;
+  categoryInput.placeholder = 'Category';
+  wrap.appendChild(categoryInput);
+
+  const actions = document.createElement('div');
+  actions.className = 'editFormActions';
+
+  const saveBtn = document.createElement('button');
+  saveBtn.className = 'success';
+  saveBtn.textContent = 'Save';
+  saveBtn.onclick = () => {
+    post('editLibraryProp', {
+      model: entry.origModel,
+      newModel: modelInput.value.trim(),
+      label: labelInput.value.trim(),
+      category: categoryInput.value.trim()
+    });
+    editingKey = null;
+    renderCategories(searchBox.value);
+  };
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.onclick = () => {
+    editingKey = null;
+    renderCategories(searchBox.value);
+  };
+
+  actions.appendChild(saveBtn);
+  actions.appendChild(cancelBtn);
+  wrap.appendChild(actions);
+  return wrap;
+}
+
+function renderCategoryList(container, categories, remainingBudget) {
   let rendered = 0;
   for (const cat of categories) {
     if (rendered >= remainingBudget) break;
-    const matching = cat.props.filter(p =>
-      !filter || p.label.toLowerCase().includes(filter) || p.model.toLowerCase().includes(filter)
-    );
-    if (matching.length === 0) continue;
+    if (cat.props.length === 0) continue;
 
     const catDiv = document.createElement('div');
     catDiv.className = 'category';
@@ -51,39 +165,116 @@ function renderCategoryList(container, categories, filter, remainingBudget) {
     h3.textContent = cat.category;
     catDiv.appendChild(h3);
 
-    for (const p of matching) {
+    for (const entry of cat.props) {
       if (rendered >= remainingBudget) break;
       const row = document.createElement('div');
       row.className = 'propItem';
-      const label = document.createElement('span');
-      label.textContent = p.label;
 
-      const isFav = favoriteModels.has(p.model);
+      if (editingKey === entry.origModel) {
+        row.appendChild(buildEditForm(entry));
+        catDiv.appendChild(row);
+        rendered++;
+        continue;
+      }
+
+      const label = document.createElement('span');
+      label.textContent = entry.label;
+
+      const isFav = favoriteModels.has(entry.origModel);
       const favBtn = document.createElement('button');
       favBtn.className = 'favBtn' + (isFav ? ' active' : '');
       favBtn.textContent = isFav ? '★' : '☆';
       favBtn.title = isFav ? 'Remove from favorites' : 'Save as favorite';
       favBtn.onclick = () => {
         if (isFav) {
-          post('unfavoriteProp', { model: p.model });
+          post('unfavoriteProp', { model: entry.origModel });
         } else {
-          post('favoriteProp', { model: p.model, label: p.label });
+          post('favoriteProp', { model: entry.origModel, label: entry.label });
         }
       };
 
       const btn = document.createElement('button');
       btn.textContent = 'Spawn';
-      btn.onclick = () => post('spawnProp', { model: p.model });
+      btn.onclick = () => post('spawnProp', { model: entry.model });
+
+      const editBtn = document.createElement('button');
+      editBtn.className = 'editBtn';
+      editBtn.textContent = '✎';
+      editBtn.title = 'Edit model/label/category';
+      editBtn.onclick = () => {
+        editingKey = entry.origModel;
+        renderCategories(searchBox.value);
+      };
+
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'removeBtn';
+      removeBtn.textContent = '✕';
+      removeBtn.title = 'Remove from prop library';
+      removeBtn.onclick = () => {
+        showConfirm(`Remove "${entry.label}" from the prop library? This is permanent and shared with every tool user.`).then((ok) => {
+          if (!ok) return;
+          if (isFav) post('unfavoriteProp', { model: entry.origModel });
+          post('removeLibraryProp', { model: entry.origModel });
+        });
+      };
 
       row.appendChild(label);
       row.appendChild(favBtn);
       row.appendChild(btn);
+      row.appendChild(editBtn);
+      row.appendChild(removeBtn);
       catDiv.appendChild(row);
       rendered++;
     }
     container.appendChild(catDiv);
   }
   return rendered;
+}
+
+function buildFavoriteEntries(filter) {
+  const props = favorites
+    .filter(f => !filter || f.label.toLowerCase().includes(filter) || f.model.toLowerCase().includes(filter))
+    .map(f => ({ model: f.model, label: f.label, category: '★ Favorites', origModel: f.model, isCustom: customModelsSet.has(f.model) }));
+  return props.length ? [{ category: '★ Favorites', props }] : [];
+}
+
+// Custom props added via the "+ Add to Library" form (or later edited),
+// grouped by whatever category they currently have - blank falls under
+// "Uncategorized" for display only, the stored category stays blank.
+function buildCustomEntries(filter) {
+  const byCategory = new Map();
+  for (const p of customAdditions) {
+    if (filter && !(p.label.toLowerCase().includes(filter) || p.model.toLowerCase().includes(filter))) continue;
+    const cat = p.category || 'Uncategorized';
+    if (!byCategory.has(cat)) byCategory.set(cat, []);
+    byCategory.get(cat).push({ model: p.model, label: p.label, category: p.category || '', origModel: p.model, isCustom: true });
+  }
+  return Array.from(byCategory.entries()).map(([category, props]) => ({ category, props }));
+}
+
+// The bundled Spooni library, with any saved edits (model/label/category
+// overrides) applied on top - including moving an entry into a different
+// category if its category override says so. Only computed once the user
+// has typed 2+ characters, same as before.
+function buildBundledEntries(filter) {
+  const byCategory = new Map();
+  for (const cat of spooniPropList) {
+    for (const p of cat.props) {
+      if (customRemovals.has(p.model) || customModelsSet.has(p.model)) continue;
+      const ov = customOverrides[p.model];
+      // ov.model === '' means "no rename requested" (a blank model can't be
+      // spawned, so it isn't treated as an override). ov.label/ov.category
+      // can genuinely be saved blank once an override exists at all - a
+      // blank category groups the prop under "Uncategorized".
+      const model = (ov && ov.model) ? ov.model : p.model;
+      const label = ov ? ov.label : p.label;
+      const category = ov ? (ov.category || 'Uncategorized') : cat.category;
+      if (filter && !(label.toLowerCase().includes(filter) || model.toLowerCase().includes(filter))) continue;
+      if (!byCategory.has(category)) byCategory.set(category, []);
+      byCategory.get(category).push({ model, label, category, origModel: p.model, isCustom: false });
+    }
+  }
+  return Array.from(byCategory.entries()).map(([category, props]) => ({ category, props }));
 }
 
 function renderCategories(filterText) {
@@ -94,15 +285,16 @@ function renderCategories(filterText) {
   // box like everything else) so props saved from a search are easy to find
   // again without re-searching.
   let rendered = 0;
-  if (favorites.length > 0) {
-    const favCategory = { category: '★ Favorites', props: favorites };
-    rendered += renderCategoryList(propCategories, [favCategory], filter, MAX_RENDERED_ITEMS);
-  }
+  rendered += renderCategoryList(propCategories, buildFavoriteEntries(filter), MAX_RENDERED_ITEMS - rendered);
+
+  // Custom props are always shown too, same as favorites, so they don't
+  // need to be re-searched either.
+  rendered += renderCategoryList(propCategories, buildCustomEntries(filter), MAX_RENDERED_ITEMS - rendered);
 
   // No curated/static list - everything else comes from live search across
   // the full Spooni library (14,856 props) once the user types 2+ characters.
   if (filter.length >= 2 && spooniLoaded) {
-    rendered += renderCategoryList(propCategories, spooniPropList, filter, MAX_RENDERED_ITEMS - rendered);
+    rendered += renderCategoryList(propCategories, buildBundledEntries(filter), MAX_RENDERED_ITEMS - rendered);
   }
 
   if (filter.length >= 2 && rendered >= MAX_RENDERED_ITEMS) {
@@ -115,7 +307,7 @@ function renderCategories(filterText) {
     note.style.cssText = 'font-size:11px;opacity:0.6;margin-top:6px;';
     note.textContent = 'Keep typing (2+ characters) to search the full 14,856-prop Spooni library.';
     propCategories.appendChild(note);
-  } else if (filter.length === 0 && favorites.length === 0) {
+  } else if (filter.length === 0 && favorites.length === 0 && customAdditions.length === 0) {
     const note = document.createElement('div');
     note.style.cssText = 'font-size:11px;opacity:0.6;margin-top:6px;';
     note.textContent = 'Search for a prop above, or star one to save it as a favorite.';
@@ -163,6 +355,22 @@ document.getElementById('spawnCustomBtn').onclick = () => {
 
 document.getElementById('closeBtn').onclick = () => post('close');
 
+document.getElementById('addPropBtn').onclick = () => {
+  const modelInput = document.getElementById('addPropModel');
+  const labelInput = document.getElementById('addPropLabel');
+  const categoryInput = document.getElementById('addPropCategory');
+  const model = modelInput.value.trim();
+  if (!model) return;
+  post('addLibraryProp', {
+    model,
+    label: labelInput.value.trim(),
+    category: categoryInput.value.trim()
+  });
+  modelInput.value = '';
+  labelInput.value = '';
+  categoryInput.value = '';
+};
+
 document.getElementById('saveMapBtn').onclick = () => {
   post('setMapName', { mapname: mapNameInput.value.trim() || 'default' }).then(() => post('saveMap'));
 };
@@ -176,9 +384,9 @@ document.getElementById('exportBtn').onclick = () => {
 };
 
 document.getElementById('clearBtn').onclick = () => {
-  if (confirm('Delete all currently placed (unsaved changes will be lost)?')) {
-    post('clearAll');
-  }
+  showConfirm('Delete all currently placed (unsaved changes will be lost)?').then((ok) => {
+    if (ok) post('clearAll');
+  });
 };
 
 searchBox.addEventListener('input', () => renderCategories(searchBox.value));
@@ -209,6 +417,13 @@ window.addEventListener('message', (event) => {
     case 'favoritesList':
       favorites = data.favorites || [];
       favoriteModels = new Set(favorites.map(f => f.model));
+      renderCategories(searchBox.value);
+      break;
+    case 'customPropsList':
+      customAdditions = (data.customProps && data.customProps.additions) || [];
+      customModelsSet = new Set(customAdditions.map(p => p.model));
+      customRemovals = new Set((data.customProps && data.customProps.removals) || []);
+      customOverrides = (data.customProps && data.customProps.overrides) || {};
       renderCategories(searchBox.value);
       break;
     case 'showPlacement':
