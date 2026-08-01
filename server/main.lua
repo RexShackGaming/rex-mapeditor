@@ -1,4 +1,5 @@
 local RSGCore = exports['rsg-core']:GetCoreObject()
+lib.locale()
 
 local function isAuthorized(source)
     if not Config.RestrictToAdmins then return true end
@@ -122,7 +123,7 @@ end)
 RegisterNetEvent('rex-mapeditor:server:saveMap', function(mapname, props)
     local src = source
     if not isAuthorized(src) then
-        print(('[rex-mapeditor] Unauthorized saveMap attempt from %s'):format(src))
+        print(locale('server_unauthorized_savemap', src))
         return
     end
     mapname = sanitizeMapName(mapname)
@@ -178,7 +179,7 @@ end)
 RegisterNetEvent('rex-mapeditor:server:removeWorldProp', function(mapname, model, x, y, z)
     local src = source
     if not isAuthorized(src) then
-        print(('[rex-mapeditor] Unauthorized removeWorldProp attempt from %s'):format(src))
+        print(locale('server_unauthorized_removeworldprop', src))
         return
     end
     mapname = sanitizeMapName(mapname)
@@ -218,7 +219,7 @@ local function doExport(mapname)
     local props = loadMapFile(mapname)
     local removals = loadRemovedPropsFile(mapname)
     if #props == 0 and #removals == 0 then
-        return nil, 'No props saved and no world-prop removals for map "' .. mapname .. '" - save or remove something first.'
+        return nil, locale('export_no_data', mapname)
     end
     local xml = BuildYmapXml(mapname, props, removals)
     local outPath = ('data/%s.ymap.xml'):format(mapname)
@@ -239,7 +240,7 @@ RegisterNetEvent('rex-mapeditor:server:exportYmap', function(mapname)
     TriggerClientEvent(
         'rex-mapeditor:client:ymapExported',
         src,
-        ('resources/[local]/rex-mapeditor/%s (%d placed entities, %d world-prop removals listed for reference) - convert to binary .ymap with CodeWalker\'s XML import before streaming.'):format(outPath, propCountOrErr, removalCount)
+        locale('export_success', outPath, propCountOrErr, removalCount)
     )
 end)
 
@@ -250,5 +251,5 @@ RegisterCommand('exportymap', function(source, args)
         print('[rex-mapeditor] ' .. propCountOrErr)
         return
     end
-    print(('[rex-mapeditor] Exported %d entities (%d world-prop removals listed for reference) to %s'):format(propCountOrErr, removalCount, outPath))
+    print(locale('server_export_log', propCountOrErr, removalCount, outPath))
 end, true)

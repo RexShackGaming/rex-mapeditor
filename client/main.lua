@@ -1,4 +1,5 @@
 local RSGCore = exports['rsg-core']:GetCoreObject()
+lib.locale()
 
 local menuOpen = false
 local placedProps = {}      -- [localId] = { entity = handle, model = string, id = serverId or nil, x,y,z,rx,ry,rz }
@@ -33,7 +34,7 @@ local function notify(msg, type)
     if lib and lib.notify then
         ok = pcall(function()
             lib.notify({
-                title = 'Prop Placer',
+                title = locale('menu_title'),
                 description = msg,
                 type = oxTypeMap[type] or 'inform',
                 duration = 4000,
@@ -403,7 +404,7 @@ function confirmGrabbed()
         rx = grabbed.rx, ry = grabbed.ry, rz = grabbed.rz,
         id = placedProps[localId] and placedProps[localId].id or nil,
     }
-    notify('Prop placed. Use the menu list to save your map.', 'success')
+    notify(locale('prop_placed'), 'success')
     grabbed = nil
     freezePlayerForPlacement(false)
     hidePlacementControlsUI()
@@ -417,7 +418,7 @@ function cancelGrabbed()
         DeleteEntity(grabbed.entity)
     end
     grabbed = nil
-    notify('Placement cancelled.', 'error')
+    notify(locale('placement_cancelled'), 'error')
     freezePlayerForPlacement(false)
     hidePlacementControlsUI()
     restoreMenuAfterPlacement()
@@ -430,7 +431,7 @@ end
 local function spawnProp(model)
     local hash = loadModel(model)
     if not hash then
-        notify('Invalid model: ' .. tostring(model), 'error')
+        notify(locale('invalid_model', tostring(model)), 'error')
         return
     end
 
@@ -581,7 +582,7 @@ local function tryDeleteAimedProp(preferredEntity)
         _, entityHit = getAimCoords(10.0)
     end
     if not entityHit or entityHit == 0 then
-        notify('Nothing in your crosshair.', 'error')
+        notify(locale('nothing_in_crosshair'), 'error')
         return
     end
 
@@ -598,9 +599,9 @@ local function tryDeleteAimedProp(preferredEntity)
     local removed = applyWorldPropRemoval(model, coords.x, coords.y, coords.z, entityHit)
     TriggerServerEvent('rex-mapeditor:server:removeWorldProp', currentMap, model, coords.x, coords.y, coords.z)
     if removed then
-        notify('World prop marked for persistent removal.', 'success')
+        notify(locale('world_prop_removed'), 'success')
     else
-        notify('Prop marked for removal, but could not be deleted right now - it should disappear shortly.', 'error')
+        notify(locale('world_prop_remove_delayed'), 'error')
     end
 end
 
@@ -619,7 +620,7 @@ end
 local function openMenu()
     if menuOpen then return end
     if not hasAccess() then
-        notify('You do not have permission to use this tool.', 'error')
+        notify(locale('no_permission'), 'error')
         return
     end
     menuOpen = true
@@ -640,7 +641,7 @@ RegisterCommand(Config.OpenCommand, function()
 end, false)
 
 if RegisterKeyMapping then
-    RegisterKeyMapping(Config.OpenCommand, 'Open Prop Placer Menu', 'keyboard', Config.OpenKey)
+    RegisterKeyMapping(Config.OpenCommand, locale('keymap_open_menu'), 'keyboard', Config.OpenKey)
 end
 
 RegisterCommand('propdelete', function()
@@ -649,7 +650,7 @@ RegisterCommand('propdelete', function()
 end, false)
 
 if RegisterKeyMapping then
-    RegisterKeyMapping('propdelete', 'Delete aimed placed prop', 'keyboard', 'DELETE')
+    RegisterKeyMapping('propdelete', locale('keymap_delete_prop'), 'keyboard', 'DELETE')
 end
 
 -- Also listen for the real RDR3 Delete-key control directly (INPUT_FRONTEND_DELETE).
@@ -680,9 +681,9 @@ local function setDeleteAimMode(state)
     if deleteAimModeActive == state then return end
     deleteAimModeActive = state
     if state then
-        notify('Delete Aim Mode: ON - aim at a prop and fire to delete it.', 'success')
+        notify(locale('delete_aim_on'), 'success')
     else
-        notify('Delete Aim Mode: OFF', 'inform')
+        notify(locale('delete_aim_off'), 'inform')
     end
 end
 
@@ -692,7 +693,7 @@ RegisterCommand('propdeleteaim', function()
 end, false)
 
 if RegisterKeyMapping then
-    RegisterKeyMapping('propdeleteaim', 'Toggle aim-to-delete prop mode', 'keyboard', 'B')
+    RegisterKeyMapping('propdeleteaim', locale('keymap_toggle_delete_aim'), 'keyboard', 'B')
 end
 
 CreateThread(function()
@@ -851,7 +852,7 @@ end)
 -- ---------------------------------------------------------------------
 
 RegisterNetEvent('rex-mapeditor:client:mapSaved', function(mapname, count)
-    notify(('Saved %d prop(s) to map "%s".'):format(count, mapname), 'success')
+    notify(locale('map_saved', count, mapname), 'success')
 end)
 
 -- Shared favorites list, sent on menu open and rebroadcast to everyone
@@ -875,7 +876,7 @@ RegisterNetEvent('rex-mapeditor:client:removedPropsList', function(mapname, remo
         applyWorldPropRemoval(r.model, r.x, r.y, r.z)
     end
     if #removals > 0 then
-        notify(('Applied %d persisted world-prop removal(s) for map "%s".'):format(#removals, mapname), 'primary')
+        notify(locale('removed_props_applied', #removals, mapname), 'primary')
     end
 end)
 
@@ -909,12 +910,12 @@ RegisterNetEvent('rex-mapeditor:client:mapLoaded', function(mapname, props)
         end
     end
     currentMap = mapname
-    notify(('Loaded %d prop(s) from map "%s".'):format(#props, mapname), 'success')
+    notify(locale('map_loaded', #props, mapname), 'success')
     refreshEntityList()
 end)
 
 RegisterNetEvent('rex-mapeditor:client:ymapExported', function(path)
-    notify('ymap XML exported: ' .. path, 'success')
+    notify(locale('ymap_exported', path), 'success')
 end)
 
 AddEventHandler('onResourceStop', function(resourceName)

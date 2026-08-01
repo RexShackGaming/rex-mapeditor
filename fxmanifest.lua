@@ -7,11 +7,10 @@ lua54 'yes'
 name 'rex-mapeditor'
 author 'RexShack'
 description 'In-game prop placement tool with ymap (CMapData) export for RSG Framework'
-version '2.0.1'
+version '2.0.2'
 
 shared_scripts {
     '@ox_lib/init.lua',
-    '@rsg-core/shared/locale.lua',
     'config.lua'
 }
 
@@ -36,12 +35,14 @@ files {
     'html/index.html',
     'html/style.css',
     'html/app.js',
-    'html/spooni_props.json',
-    'data/*.json'
+    'html/props.json',
+    'data/*.json',
+    'locales/*.json'
 }
 
 escrow_ignore {
     'data/*',
+    'locales/*',
     'config.lua',
     'README.md'
 }

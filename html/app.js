@@ -20,7 +20,7 @@ const MAX_RENDERED_ITEMS = 250; // cap DOM nodes when searching the full Spooni 
 async function loadSpooniProps() {
   if (spooniLoaded) return;
   try {
-    const res = await fetch('spooni_props.json');
+    const res = await fetch('props.json');
     spooniPropList = await res.json();
   } catch (e) {
     spooniPropList = [];
