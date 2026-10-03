@@ -20,6 +20,32 @@ let customOverrides = {};   // { [model]: {label} }, label overrides for bundled
 let editingKey = null;      // origModel of the row currently shown in inline edit mode in the Prop Library, if any
 let openKey = 'F6';         // from Config.OpenKey - also closes the menu while it's open (see keydown listener below)
 
+// ---------------------------------------------------------------------
+// Localisation: strings come from locales/<lang>.json (ui_* keys) via the
+// client 'locales' message. The English text in index.html is the fallback.
+// ---------------------------------------------------------------------
+let i18n = {};
+
+function t(key, ...args) {
+  let str = i18n[key];
+  if (typeof str !== 'string') return key;
+  for (const a of args) str = str.replace('%s', a);
+  return str;
+}
+
+function applyLocales() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    if (i18n[el.dataset.i18n]) el.textContent = i18n[el.dataset.i18n];
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    if (i18n[el.dataset.i18nPlaceholder]) el.placeholder = i18n[el.dataset.i18nPlaceholder];
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => {
+    if (i18n[el.dataset.i18nTitle]) el.title = i18n[el.dataset.i18nTitle];
+  });
+  document.getElementById('closeBtn').textContent = t('ui_close', openKey);
+}
+
 const MAX_RENDERED_ITEMS = 250; // cap DOM nodes when searching the full Spooni library
 
 async function loadSpooniProps() {
@@ -102,25 +128,25 @@ function buildEditForm(entry) {
   const wrap = document.createElement('div');
   wrap.className = 'editForm';
 
-  addFieldLabel(wrap, 'Model');
+  addFieldLabel(wrap, t('ui_field_model'));
   const modelInput = document.createElement('input');
   modelInput.type = 'text';
   modelInput.value = entry.model;
-  modelInput.placeholder = 'Model';
+  modelInput.placeholder = t('ui_field_model');
   wrap.appendChild(modelInput);
 
-  addFieldLabel(wrap, 'Label');
+  addFieldLabel(wrap, t('ui_field_label'));
   const labelInput = document.createElement('input');
   labelInput.type = 'text';
   labelInput.value = entry.label;
-  labelInput.placeholder = 'Label';
+  labelInput.placeholder = t('ui_field_label');
   wrap.appendChild(labelInput);
 
-  addFieldLabel(wrap, 'Category');
+  addFieldLabel(wrap, t('ui_field_category'));
   const categoryInput = document.createElement('input');
   categoryInput.type = 'text';
   categoryInput.value = entry.category;
-  categoryInput.placeholder = 'Category';
+  categoryInput.placeholder = t('ui_field_category');
   wrap.appendChild(categoryInput);
 
   const actions = document.createElement('div');
@@ -128,7 +154,7 @@ function buildEditForm(entry) {
 
   const saveBtn = document.createElement('button');
   saveBtn.className = 'success';
-  saveBtn.textContent = 'Save';
+  saveBtn.textContent = t('ui_save');
   saveBtn.onclick = () => {
     post('editLibraryProp', {
       model: entry.origModel,
@@ -141,7 +167,7 @@ function buildEditForm(entry) {
   };
 
   const cancelBtn = document.createElement('button');
-  cancelBtn.textContent = 'Cancel';
+  cancelBtn.textContent = t('ui_cancel');
   cancelBtn.onclick = () => {
     editingKey = null;
     renderCategories(searchBox.value);
@@ -184,7 +210,7 @@ function renderCategoryList(container, categories, remainingBudget) {
       const favBtn = document.createElement('button');
       favBtn.className = 'favBtn' + (isFav ? ' active' : '');
       favBtn.textContent = isFav ? '★' : '☆';
-      favBtn.title = isFav ? 'Remove from favorites' : 'Save as favorite';
+      favBtn.title = t(isFav ? 'ui_unfavorite' : 'ui_favorite');
       favBtn.onclick = () => {
         if (isFav) {
           post('unfavoriteProp', { model: entry.origModel });
@@ -194,13 +220,13 @@ function renderCategoryList(container, categories, remainingBudget) {
       };
 
       const btn = document.createElement('button');
-      btn.textContent = 'Spawn';
+      btn.textContent = t('ui_spawn');
       btn.onclick = () => post('spawnProp', { model: entry.model });
 
       const editBtn = document.createElement('button');
       editBtn.className = 'editBtn';
       editBtn.textContent = '✎';
-      editBtn.title = 'Edit model/label/category';
+      editBtn.title = t('ui_edit_entry');
       editBtn.onclick = () => {
         editingKey = entry.origModel;
         renderCategories(searchBox.value);
@@ -209,9 +235,9 @@ function renderCategoryList(container, categories, remainingBudget) {
       const removeBtn = document.createElement('button');
       removeBtn.className = 'removeBtn';
       removeBtn.textContent = '✕';
-      removeBtn.title = 'Remove from prop library';
+      removeBtn.title = t('ui_remove_entry');
       removeBtn.onclick = () => {
-        showConfirm(`Remove "${entry.label}" from the prop library? This is permanent and shared with every tool user.`).then((ok) => {
+        showConfirm(t('ui_confirm_remove_entry', entry.label)).then((ok) => {
           if (!ok) return;
           if (isFav) post('unfavoriteProp', { model: entry.origModel });
           post('removeLibraryProp', { model: entry.origModel });
@@ -234,8 +260,8 @@ function renderCategoryList(container, categories, remainingBudget) {
 function buildFavoriteEntries(filter) {
   const props = favorites
     .filter(f => !filter || f.label.toLowerCase().includes(filter) || f.model.toLowerCase().includes(filter))
-    .map(f => ({ model: f.model, label: f.label, category: '★ Favorites', origModel: f.model, isCustom: customModelsSet.has(f.model) }));
-  return props.length ? [{ category: '★ Favorites', props }] : [];
+    .map(f => ({ model: f.model, label: f.label, category: '★ ' + t('ui_favorites'), origModel: f.model, isCustom: customModelsSet.has(f.model) }));
+  return props.length ? [{ category: '★ ' + t('ui_favorites'), props }] : [];
 }
 
 // Custom props added via the "+ Add to Library" form (or later edited),
@@ -245,7 +271,7 @@ function buildCustomEntries(filter) {
   const byCategory = new Map();
   for (const p of customAdditions) {
     if (filter && !(p.label.toLowerCase().includes(filter) || p.model.toLowerCase().includes(filter))) continue;
-    const cat = p.category || 'Uncategorized';
+    const cat = p.category || t('ui_uncategorized');
     if (!byCategory.has(cat)) byCategory.set(cat, []);
     byCategory.get(cat).push({ model: p.model, label: p.label, category: p.category || '', origModel: p.model, isCustom: true });
   }
@@ -268,7 +294,7 @@ function buildBundledEntries(filter) {
       // blank category groups the prop under "Uncategorized".
       const model = (ov && ov.model) ? ov.model : p.model;
       const label = ov ? ov.label : p.label;
-      const category = ov ? (ov.category || 'Uncategorized') : cat.category;
+      const category = ov ? (ov.category || t('ui_uncategorized')) : cat.category;
       if (filter && !(label.toLowerCase().includes(filter) || model.toLowerCase().includes(filter))) continue;
       if (!byCategory.has(category)) byCategory.set(category, []);
       byCategory.get(category).push({ model, label, category, origModel: p.model, isCustom: false });
@@ -300,17 +326,17 @@ function renderCategories(filterText) {
   if (filter.length >= 2 && rendered >= MAX_RENDERED_ITEMS) {
     const note = document.createElement('div');
     note.style.cssText = 'font-size:11px;opacity:0.6;margin-top:6px;';
-    note.textContent = `Showing first ${MAX_RENDERED_ITEMS} matches - refine your search to narrow further.`;
+    note.textContent = t('ui_results_capped', MAX_RENDERED_ITEMS);
     propCategories.appendChild(note);
   } else if (filter.length === 1) {
     const note = document.createElement('div');
     note.style.cssText = 'font-size:11px;opacity:0.6;margin-top:6px;';
-    note.textContent = 'Keep typing (2+ characters) to search the full 14,856-prop Spooni library.';
+    note.textContent = t('ui_keep_typing');
     propCategories.appendChild(note);
   } else if (filter.length === 0 && favorites.length === 0 && customAdditions.length === 0) {
     const note = document.createElement('div');
     note.style.cssText = 'font-size:11px;opacity:0.6;margin-top:6px;';
-    note.textContent = 'Search for a prop above, or star one to save it as a favorite.';
+    note.textContent = t('ui_library_empty');
     propCategories.appendChild(note);
   }
 }
@@ -318,7 +344,10 @@ function renderCategories(filterText) {
 function renderPlacedList() {
   placedList.innerHTML = '';
   if (currentPlaced.length === 0) {
-    placedList.innerHTML = '<div style="opacity:0.5; font-size:12px;">No props placed yet.</div>';
+    const empty = document.createElement('div');
+    empty.style.cssText = 'opacity:0.5; font-size:12px;';
+    empty.textContent = t('ui_no_props');
+    placedList.appendChild(empty);
     return;
   }
   currentPlaced.forEach(p => {
@@ -331,12 +360,12 @@ function renderPlacedList() {
     actions.className = 'actions';
 
     const tpBtn = document.createElement('button');
-    tpBtn.textContent = 'TP';
+    tpBtn.textContent = t('ui_teleport');
     tpBtn.onclick = () => post('teleportTo', { localId: p.localId });
 
     const delBtn = document.createElement('button');
-    delBtn.textContent = 'Delete';
-    delBtn.className = '';
+    delBtn.textContent = t('ui_delete');
+    delBtn.className = 'danger';
     delBtn.onclick = () => post('deleteProp', { localId: p.localId });
 
     actions.appendChild(tpBtn);
@@ -371,35 +400,56 @@ document.getElementById('addPropBtn').onclick = () => {
   categoryInput.value = '';
 };
 
+// Mirror the server's sanitizer so the name shown is the name used.
+function currentMapName() {
+  const clean = mapNameInput.value.trim().replace(/[^\w-]/g, '').slice(0, 48) || 'default';
+  mapNameInput.value = clean;
+  return clean;
+}
+
 document.getElementById('saveMapBtn').onclick = () => {
-  post('setMapName', { mapname: mapNameInput.value.trim() || 'default' }).then(() => post('saveMap'));
+  post('saveMap', { mapname: currentMapName() });
 };
 
 document.getElementById('loadMapBtn').onclick = () => {
-  post('loadMap', { mapname: mapNameInput.value.trim() || 'default' });
+  post('loadMap', { mapname: currentMapName() });
 };
 
 document.getElementById('exportBtn').onclick = () => {
-  post('exportYmap', { mapname: mapNameInput.value.trim() || 'default' });
+  post('exportYmap', { mapname: currentMapName() });
 };
 
 document.getElementById('clearBtn').onclick = () => {
-  showConfirm('Delete all currently placed (unsaved changes will be lost)?').then((ok) => {
+  showConfirm(t('ui_confirm_clear_all')).then((ok) => {
     if (ok) post('clearAll');
   });
 };
 
-searchBox.addEventListener('input', () => renderCategories(searchBox.value));
+// Debounced so typing doesn't rebuild the 14k-prop search on every key.
+let searchTimer = null;
+searchBox.addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => renderCategories(searchBox.value), 150);
+});
 
 window.addEventListener('message', (event) => {
   const data = event.data;
   switch (data.action) {
     case 'open':
       mapNameInput.value = data.mapname;
-      if (data.openKey) openKey = data.openKey;
+      if (data.openKey) {
+        openKey = data.openKey;
+        applyLocales();
+      }
       app.classList.remove('hidden');
       renderCategories(searchBox.value);
       loadSpooniProps().then(() => renderCategories(searchBox.value));
+      break;
+    case 'locales':
+      i18n = data.locales || {};
+      applyLocales();
+      renderCategories(searchBox.value);
+      renderPlacedList();
       break;
     case 'close':
       app.classList.add('hidden');
@@ -427,11 +477,17 @@ window.addEventListener('message', (event) => {
       renderCategories(searchBox.value);
       break;
     case 'showPlacement':
-      placementModelLabel.textContent = data.model || 'prop';
+      placementModelLabel.textContent = data.model || t('ui_prop');
       placementPanel.classList.remove('hidden');
       break;
     case 'hidePlacement':
       placementPanel.classList.add('hidden');
+      break;
+    case 'showInspector':
+      showInspector(data);
+      break;
+    case 'hideInspector':
+      document.getElementById('inspector').classList.add('hidden');
       break;
   }
 });
@@ -505,16 +561,97 @@ window.addEventListener('message', (event) => {
 })();
 
 document.addEventListener('keydown', (e) => {
+  // Escape: close the confirm modal first, cancel placement if placing,
+  // otherwise close the menu.
   if (e.key === 'Escape') {
-    post('close');
+    if (!confirmOverlay.classList.contains('hidden')) closeConfirm(false);
+    else if (!placementPanel.classList.contains('hidden')) post('placementCancel');
+    else post('close');
+    return;
   }
+  // Ignore the open key while typing in an input.
+  if (e.target && e.target.tagName === 'INPUT' && (e.key || '').length === 1) return;
   // The menu grabs full keyboard focus while open (SetNuiFocus(true, true)),
   // which stops the game's own RegisterKeyMapping for Config.OpenKey (F6 by
   // default) from ever firing a second time - so re-pressing it here has to
   // be handled directly in the NUI instead.
   const pressed = (e.key || '').toUpperCase();
+  if (!placementPanel.classList.contains('hidden')) return;
   const bound = (openKey || '').toUpperCase();
   if (bound && (pressed === bound || e.code.toUpperCase() === bound)) {
     post('close');
   }
 });
+
+
+// ---------------------------------------------------------------------
+// Aim inspector (top-left info card)
+// ---------------------------------------------------------------------
+function joaat(str) {
+  str = str.toLowerCase();
+  let h = 0;
+  for (let i = 0; i < str.length; i++) {
+    h = (h + str.charCodeAt(i)) >>> 0;
+    h = (h + (h << 10)) >>> 0;
+    h = (h ^ (h >>> 6)) >>> 0;
+  }
+  h = (h + (h << 3)) >>> 0;
+  h = (h ^ (h >>> 11)) >>> 0;
+  h = (h + (h << 15)) >>> 0;
+  return h;
+}
+
+let hashNameMap = null;
+let hashMapBuilding = false;
+async function ensureHashMap() {
+  if (hashNameMap || hashMapBuilding) return;
+  hashMapBuilding = true;
+  await loadSpooniProps();
+  const m = new Map();
+  const add = (model) => { if (model) m.set(joaat(model), model); };
+  for (const cat of spooniPropList || []) {
+    if (cat && Array.isArray(cat.props)) cat.props.forEach(p => add(p.model));
+    else if (cat && cat.model) add(cat.model);
+  }
+  (customAdditions || []).forEach(p => add(p.model));
+  hashNameMap = m;
+  hashMapBuilding = false;
+}
+
+function showInspector(d) {
+  ensureHashMap();
+  const el = document.getElementById('inspector');
+  const unsigned = (d.hash >>> 0);
+  const name = hashNameMap && hashNameMap.get(unsigned);
+  const f = (n) => Number(n).toFixed(2);
+  document.getElementById('inspModel').textContent = name || t('ui_insp_unknown_model');
+  document.getElementById('inspHash').textContent = `${d.hash}  (0x${unsigned.toString(16).toUpperCase()})`;
+  document.getElementById('inspType').textContent = t('ui_type_' + d.type);
+  document.getElementById('inspCoords').textContent = `${f(d.x)}, ${f(d.y)}, ${f(d.z)}`;
+  document.getElementById('inspRot').textContent = `${f(d.rx)}, ${f(d.ry)}, ${f(d.rz)}`;
+  document.getElementById('inspDist').textContent = `${f(d.distance)} m`;
+  document.getElementById('inspSource').textContent = d.placed ? t('ui_insp_placed', d.map) : t('ui_insp_world_prop');
+  const flags = [];
+  if (d.mission) flags.push(t('ui_flag_mission'));
+  if (d.networked) flags.push(t('ui_flag_networked'));
+  document.getElementById('inspFlags').textContent = flags.length ? flags.join(' · ') : t('ui_flag_none');
+
+  const pill = document.getElementById('inspStatus');
+  const note = document.getElementById('inspNote');
+  pill.classList.remove('ok', 'bad', 'warn');
+  if (!d.deletable) {
+    pill.textContent = t('ui_status_no_delete'); pill.classList.add('bad');
+    note.textContent = t('ui_note_no_delete');
+  } else if (d.type === 'map' && !d.placed) {
+    pill.textContent = t('ui_status_hide'); pill.classList.add('warn');
+    note.textContent = t('ui_note_hide');
+  } else if (d.networked && !d.placed) {
+    pill.textContent = t('ui_status_maybe'); pill.classList.add('warn');
+    note.textContent = t('ui_note_networked');
+  } else {
+    pill.textContent = t('ui_status_deletable'); pill.classList.add('ok');
+    note.textContent = '';
+  }
+  note.style.display = note.textContent ? 'block' : 'none';
+  el.classList.remove('hidden');
+}

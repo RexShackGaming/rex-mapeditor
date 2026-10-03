@@ -7,11 +7,11 @@ Config.OpenKey = 'F6'
 -- Who is allowed to use the tool.
 -- Set to false to allow every player (not recommended on a live server).
 Config.RestrictToAdmins = true
-Config.AdminGroups = { 'admin', 'god' } -- checked against RSGCore.Functions.HasPermission / Player.PlayerData.job? we use ACE below
-Config.AdminAce = 'command' -- ACE permission required, e.g. add_ace identifier.xxxx group.admin command allow
+-- A player is allowed if EITHER check passes:
+Config.AdminAce = 'command'            -- ACE permission, e.g. add_ace group.admin command allow
+Config.AdminGroups = { 'admin', 'god' } -- RSG-Core permission groups (RSGCore.Functions.HasPermission)
 
--- Distance (meters) from the camera that a prop is raycast-placed at when spawned
-Config.SpawnDistance = 3.0
+-- Max raycast distance (meters) used to find a placement point in front of the camera
 Config.MaxRaycastDistance = 50.0
 
 -- Movement/rotation step sizes while a prop is in "placement" (grabbed) mode
@@ -33,7 +33,6 @@ Config.DefaultFlags = 32
 -- to de-duplicate removal entries that are effectively the same spot.
 Config.RemovalMatchRadius = 1.5
 
--- The Prop Library NUI has no static/curated prop list - it shows only your
--- Favorites (persisted server-side, see server/main.lua) plus live search
--- results across the full Spooni prop library (14,856 props). Search for
--- anything and star it to keep it handy next time.
+-- Radius (meters) used to hide map-baked props (type "Map / Building") that
+-- have no deletable entity, at the removal spot.
+Config.ModelHideRadius = 1.5

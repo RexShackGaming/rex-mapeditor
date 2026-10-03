@@ -1,107 +1,165 @@
 # rex-mapeditor
 
-An in-game prop placement tool for RedM/RSG-Core servers. Browse and spawn static props from an NUI menu, position them with keyboard controls, save your layout, and export it to a CMapData (`.ymap`) XML file for use in CodeWalker.
+An in-game prop placement tool for RedM / RSG Framework servers. Browse and spawn static props from an NUI menu, position them with keyboard or mouse controls, remove existing world props, save your layout, and export it to a CMapData (`.ymap`) XML file for CodeWalker.
 
 ## Features
 
-- **NUI prop browser** — searchable, categorized list of common RDR2 static props, plus a free-text field to spawn any model by name/hash.
-- **Full prop library** — ships all 14,856 props grouped by category/subcategory. Type 2+ characters in the search box to search across it (results are capped at 250 matches at a time to keep the UI responsive); it's not shown by default to keep the menu fast on open.
-- **Add/remove/edit library entries** — the "+ Add to Library" form lets you add any model (with an optional label/category) to the Prop Library without editing files; it shows up under its category for every tool user immediately. Every prop row (bundled or custom) has a ✎ button to edit its model, label, and category — all three fields can be left blank if you want (a blank category groups the prop under "Uncategorized") — and a ✕ button to remove it from the library. Custom entries are edited/deleted in place; bundled entries get a saved override layered on top instead of editing the 14,856-prop file directly. Additions, edits, and removals are all persisted server-side in `data/custom_props.json` and shared across all tool users.
-- **In-world placement controls** — newly spawned props enter a "placement mode": arrow keys move, Page Up/Down adjust height, Q/E rotate yaw, `[`/`]` fine-tune pitch, Enter confirms, Backspace/Esc cancels. Hold Shift for faster movement/rotation. Bindings use RDR3's real named controls (`INPUT_FRONTEND_*`, `INPUT_CREATOR_LT/RT`, etc.) rather than GTA V's numeric control IDs, which don't map correctly in RedM.
-- **Placement Panel (click-based alternative to keybinds)** — while placing a prop, a small, semi-transparent, draggable panel appears with buttons for every placement action (move, height, yaw, pitch, a Fast-movement toggle, Confirm, Cancel). Click once to nudge, or click-and-hold to repeat, same as holding a key. Drag it by its header to keep it clear of the prop you're positioning — it never takes over the screen: uses `SetNuiFocusKeepInput` so camera look and all the keybinds above keep working at the same time, letting you freely mix mouse clicks and keys.
-- **Character locked during placement** — the player ped is frozen in place and every normal movement/combat/interaction control (walking, jumping, firing, reloading, melee, mounting, whistling for a horse, etc.) is disabled for the duration of placement mode, so the character can't wander off, get shoved around, or accidentally do something else while you're positioning a prop. Everything is restored the moment you confirm or cancel.
-- **Placed prop list** — every prop you've placed shows in the menu with its coordinates, a teleport-to button, and a delete button.
-- **Aim-and-delete, dual purpose** — aim your camera at anything and press Delete:
-  - If it's a prop *this tool placed*, it's removed from the saved map as usual.
-  - If it's an **existing base-game world prop**, it's added to a persistent per-map removal list instead (see below), deleted immediately, and broadcast so it disappears for every connected player too.
-  This listens to RDR3's native `INPUT_FRONTEND_DELETE` control directly, so it works even if `RegisterKeyMapping` isn't available on your server build.
-- **Aim-and-fire delete mode** — press **B** (or run `/propdeleteaim`) to toggle a mode where you point a drawn weapon at a prop and pull the trigger to delete it, using the weapon's own sight as a clear visual preview of what will be removed. Targeting uses RDR3's real free-aim natives (`IsPlayerFreeAiming` / `GetEntityPlayerIsFreeAimingAt`) rather than a plain camera raycast, so it tracks whatever the weapon's reticle is actually locked onto. The weapon is prevented from actually discharging while this mode is active (no bullet, no ammo used, no damage/noise) — firing is only read as a confirm gesture. Uses the same placed-prop/world-prop deletion logic as the Delete-key shortcut above. Auto-disables if you start placing/grabbing a prop.
-- **Persistent world-prop removal** — removed base-game props are stored in `data/<mapname>.removed.json` (model + coordinates). On resource start, and whenever a map is loaded, the full removal list is sent to clients and enforced by a background loop that re-deletes matching entities if the game respawns them when the area streams back in. This is a runtime removal, not a file edit — see the note below on why that's the right approach here.
-- **Save / Load maps** — persist your current layout to a named JSON file on the server, and reload it later (also restores the props in the world and re-applies that map's world-prop removals).
-- **Export to ymap XML** — generates a CodeWalker-compatible CMapData XML file with accurate positions, rotations (converted to quaternions), and streaming extents for every saved prop, plus an XML comment block listing any world-prop removals for that map (model + coordinates) for manual cross-referencing in CodeWalker.
-- **Permission-gated** — save/load/remove/export/world-prop-removal actions are re-checked server-side via ACE permission, independent of the client. Reading back removal lists (so every player sees a consistent world) is not permission-gated, since it's read-only.
+- **Prop Library** — shows your **Favorites** and custom library entries on open. Type 2+ characters to search the full 14,856-prop library (`html/props.json`, capped at 250 results per search). Type any exact model name or numeric hash and click **Spawn typed model** to spawn something that isn't listed.
+- **Favorites & custom library** — star (☆) any prop to keep it at the top of the list. **+ Add to Library** adds your own models; every row has ✎ (edit model/label/category) and ✕ (remove). Bundled entries are never edited on disk — edits are stored as overrides in `data/custom_props.json`. Favorites and library changes are shared with every tool user.
+- **Placement mode** — arrows move (relative to the camera), Page Up/Down change height, Q/E rotate yaw, `[`/`]` pitch, Enter confirms, Backspace/Esc cancels. Hold Shift for faster steps. The character is frozen and normal movement/combat/interaction controls are disabled until you confirm or cancel.
+- **Placement Panel** — a small draggable panel with buttons for every placement action (click to nudge, hold to repeat, plus a Fast toggle). Keybinds keep working at the same time.
+- **Placed prop list** — every placed prop is listed with teleport and delete buttons.
+- **Delete key** — aim your camera at something and press **Delete**:
+  - a prop placed with this tool is removed from the map;
+  - any other world prop is added to the map's persistent removal list, deleted, and removed for every connected player.
+- **Aim-and-fire delete mode** — press **B** (or `/propdeleteaim`) to toggle. Draw a weapon, aim at a prop and pull the trigger to delete it. The weapon never actually fires while this mode is on. It switches off automatically when you start placing a prop.
+- **Aim inspector** — while aiming a weapon, a small card shows the model name/hash, type, coords, rotation, distance and whether the target can be removed, and the prop is outlined (green = deletable, amber = map-baked and will be hidden, red = can't be removed).
+- **Persistent world-prop removal** — stored per map in `data/<map>.removed.json`. Removals for the `default` map are applied for every player on join. A background loop re-deletes nearby matches if the game streams them back in; map-baked props without an entity are hidden with a model hide.
+- **IMAP removal** — `/imapremove <hash|name>` and `/imaprestore <hash|name>` unload or restore a whole map section for everyone, saved per map in `data/<map>.imaps.json`.
+- **Save / Load maps** — save your layout to `data/<map>.json` and load it back later (also re-applies that map's world-prop and IMAP removals).
+- **Export to ymap XML** — writes `data/<map>.ymap.xml`, a CodeWalker-compatible CMapData XML with positions, quaternion rotations and streaming extents, plus a comment block listing the map's world-prop removals for reference.
 
 ### A note on ymap export and world-prop removal
 
-RedM streams binary `.ymap` files, and there is no public tool to compile RDR3 map resources directly to binary. The export produces the **plaintext XML** representation of a CMapData resource (the same schema CodeWalker uses for XML import/export). To get a usable binary `.ymap`:
+RedM streams binary `.ymap` files, and there's no public tool that compiles RDR3 map resources straight to binary. The export is the **XML** form of a CMapData resource. To use it:
 
 1. Open CodeWalker (RDR3 project mode).
-2. File → XML → Import Ymap, and select the exported `.ymap.xml` file.
+2. File → XML → Import Ymap, and select the exported `.ymap.xml`.
 3. Export it from CodeWalker as a binary `.ymap`.
-4. Add the resulting file to a stream/data resource on your server.
+4. Add the file to a stream/data resource on your server.
 
-Removing an *existing* base-game prop can't be done the same way — those props live inside Rockstar's own packed game archives, and there's no supported way for a distributable multiplayer resource to bake a "delete this entity" instruction into a ymap that affects them. Editing those files directly would mean shipping modified copies of Rockstar's assets, which isn't something this tool does. Instead, world-prop removals are enforced live: every client deletes matching entities near the recorded coordinates and keeps re-deleting them if they respawn when the area streams back in. The result is the same from a player's perspective (the prop stays gone, every session, for everyone), it just isn't a file-level edit. If you additionally want a true binary-level removal for single-player/offline use, the exported ymap XML lists the removed props' model and coordinates in a comment block so you can manually delete the equivalent entities from the vanilla ymap yourself in CodeWalker.
+Base-game props live inside Rockstar's packed archives, so a distributable resource can't remove them with a file edit. Instead, removals are enforced live on every client. The result is the same for players (the prop stays gone, for everyone, every session). The exported XML lists removed props so you can also delete them from the vanilla ymap in CodeWalker if you want a file-level edit.
+
+## Requirements
+
+- [ox_lib](https://github.com/overextended/ox_lib)
 
 ## Installation
 
 1. Copy the `rex-mapeditor` folder into your server's `resources` directory.
-2. Add to your `server.cfg`:
+2. Add to `server.cfg` (after `ox_lib`):
    ```
    ensure rex-mapeditor
    ```
-3. Make sure it starts **after** `rsg-core`, `oxmysql`, and `ox_lib` (required for in-game notifications).
-4. Grant the ACE permission needed to use the tool (see Configuration below), e.g.:
+3. Give admins access (see [Permissions](#permissions) below), e.g.:
    ```
    add_ace group.admin command allow
    add_principal identifier.xxxxxxxx group.admin
    ```
-5. Restart the resource or restart your server.
+4. Restart the resource or the server.
 
 ## Usage
 
-- Press **F6** (or run `/mapeditor`) in-game to open the menu. F6 is bound via `RegisterKeyMapping`, which isn't available on every RedM build — if F6 does nothing, use `/mapeditor`, or bind it yourself with `bind keyboard F6 mapeditor` in the F8 console.
-- Search or scroll the prop library and click **Spawn**, or type an exact model name and click **Spawn typed model**.
-- Position the prop with the in-world controls (arrows/PageUp/PageDown/Q/E/`[`/`]`, then Enter to confirm) or with the draggable Placement Panel that appears on screen — click its buttons instead, or mix both.
-- Repeat for as many props as you want, then set a map name and click **Save Map**.
-- Click **Load** to restore a previously saved map's props into the world.
-- Click **Export to .ymap** to generate the CMapData XML (written to `data/<mapname>.ymap.xml` inside the resource folder).
-- Console command `exportymap <mapname>` is also available for server-side use.
-- To delete a prop, either aim your camera at it and press **Delete**, or press **B** to toggle aim-and-fire delete mode, point a drawn weapon at it, and pull the trigger.
+- Press **F6** (or run `/mapeditor`) to open/close the menu. If F6 does nothing on your build, use `/mapeditor` or `bind keyboard F6 mapeditor` in the F8 console.
+- Search the library and click **Spawn**, then position the prop and press Enter (or click **Confirm**).
+- Enter a map name, then **Save Map**, **Load**, or **Export to .ymap**. Map names may only contain letters, numbers, `_` and `-`.
+- **Esc** cancels placement while placing, otherwise closes the menu.
+- Server console: `exportymap <mapname>`.
+
+| Command | Default key | Description |
+|---|---|---|
+| `/mapeditor` | F6 | Open / close the menu |
+| `/propdelete` | Delete | Delete the prop under the camera crosshair |
+| `/propdeleteaim` | B | Toggle aim-and-fire delete mode |
+| `/imapremove <hash\|name>` | — | Remove an IMAP for the current map |
+| `/imaprestore <hash\|name>` | — | Restore an IMAP for the current map |
+| `exportymap <mapname>` | — | Server console / ACE: export a map to XML |
 
 ## Configuration
 
-All settings live in `config.lua`.
+All settings are in `shared/config.lua`.
 
 | Setting | Description | Default |
 |---|---|---|
-| `Config.OpenCommand` | Command name used to open the menu | `'mapeditor'` |
-| `Config.OpenKey` | Default keybind (rebindable in FiveM/RedM keybind settings) | `'F6'` |
-| `Config.RestrictToAdmins` | If `true`, only players with the configured ACE permission can use the tool | `true` |
-| `Config.AdminAce` | ACE permission string required when `RestrictToAdmins` is `true` | `'command'` |
-| `Config.SpawnDistance` | Fallback spawn distance (meters) from camera | `3.0` |
+| `Config.OpenCommand` | Command used to open the menu | `'mapeditor'` |
+| `Config.OpenKey` | Default keybind (rebindable in key settings) | `'F6'` |
+| `Config.RestrictToAdmins` | Only admins (ACE or RSG-Core group) can use the tool | `true` |
+| `Config.AdminAce` | ACE permission that grants access | `'command'` |
+| `Config.AdminGroups` | RSG-Core permission groups that grant access | `{ 'admin', 'god' }` |
 | `Config.MaxRaycastDistance` | Max raycast distance used to find a placement point | `50.0` |
-| `Config.MoveStep` / `Config.MoveStepFast` | Movement step size per tick (normal / Shift held), in meters | `0.05` / `0.25` |
-| `Config.RotateStep` / `Config.RotateStepFast` | Rotation step size per tick (normal / Shift held), in degrees | `1.0` / `5.0` |
-| `Config.HeightStep` | Height adjustment step per tick, in meters | `0.05` |
-| `Config.DefaultLodDist` | LOD distance written into exported ymap entities | `500.0` |
-| `Config.DefaultChildLodDist` | Child LOD distance written into exported ymap entities | `0.0` |
-| `Config.DefaultPriorityLevel` | Streaming priority level written into exported ymap entities | `'PRI_REQUIRED'` |
-| `Config.DefaultFlags` | Entity flags written into exported ymap entities | `32` |
-| `Config.RemovalMatchRadius` | Radius (meters) used to find/match an existing base-game prop for the persistent world-prop removal feature | `1.5` |
+| `Config.MoveStep` / `Config.MoveStepFast` | Move step per tick (normal / Shift), meters | `0.05` / `0.25` |
+| `Config.RotateStep` / `Config.RotateStepFast` | Rotation step per tick (normal / Shift), degrees | `1.0` / `5.0` |
+| `Config.HeightStep` / `Config.HeightStepFast` | Height step per tick (normal / Shift), meters | `0.015` / `0.075` |
+| `Config.DefaultLodDist` | LOD distance written to exported entities | `500.0` |
+| `Config.DefaultChildLodDist` | Child LOD distance written to exported entities | `0.0` |
+| `Config.DefaultPriorityLevel` | Streaming priority written to exported entities | `'PRI_REQUIRED'` |
+| `Config.DefaultFlags` | Entity flags written to exported entities | `32` |
+| `Config.RemovalMatchRadius` | Radius used to match a world prop for removal | `1.5` |
+| `Config.ModelHideRadius` | Radius used to hide map-baked props | `1.5` |
 
-The NUI Prop Library has no static/curated list. By default it shows only your **Favorites** (see below). Type 2+ characters into the search box to query the full 14,856-prop Spooni library (`html/spooni_props.json`); star (☆) any result to save it as a favorite, which persists server-side and is shared with every tool user — favorites show up at the top of the library on every future menu open, so you don't have to re-search for props you use often. Use the free-text search field to spawn any model by its exact name or hash even if it isn't in the Spooni library.
+## Languages
+
+All player-facing text — notifications, keybind labels, server console messages and the entire NUI (menu, placement panel, confirm box, aim inspector) — lives in `locales/<lang>.json`. Included: `en`, `de`, `el`, `es`, `fr`, `ja`, `nl`, `pl`, `pt-br`, `ro`.
+
+Pick the language with ox_lib's convar in `server.cfg`, e.g.:
+```
+setr ox:locale de
+```
+
+Keys starting with `ui_` are sent to the NUI automatically, so to add a language just copy `en.json` to `locales/<code>.json` and translate the values (keep every `%s` placeholder, in the same order).
 
 ## File structure
 
 ```
 rex-mapeditor/
 ├── fxmanifest.lua
-├── config.lua
+├── shared/
+│   └── config.lua
 ├── client/
-│   └── main.lua        -- menu, placement controls, entity spawning/tracking
+│   └── main.lua           -- menu, placement, deletion, inspector, removals
 ├── server/
-│   ├── main.lua         -- save/load/remove/export events, permission checks
-│   └── ymap.lua         -- CMapData XML builder
+│   ├── main.lua           -- permission checks, validation, save/load/export
+│   ├── ymap.lua           -- CMapData XML builder
+│   └── versionchecker.lua
 ├── html/
 │   ├── index.html
 │   ├── style.css
-│   ├── app.js               -- NUI logic
-│   └── spooni_props.json    -- full 14,856-prop Spooni library, search-only
-└── data/                -- saved maps (<mapname>.json), world-prop removals
-                          -- (<mapname>.removed.json), and exported ymap XML
-                          -- (<mapname>.ymap.xml) land here
+│   ├── app.js             -- NUI logic
+│   └── props.json         -- 14,856-prop library (search only)
+├── locales/
+│   └── en, de, el, es, fr, ja, nl, pl, pt-br, ro (.json)
+└── data/                  -- created at runtime: <map>.json, <map>.removed.json,
+                           -- <map>.imaps.json, <map>.ymap.xml,
+                           -- favorites.json, custom_props.json
 ```
 
 ## Permissions
 
-Server-side authorization is the real security boundary: every save, load, remove, and export event re-checks `IsPlayerAceAllowed(source, Config.AdminAce)` regardless of what the client sends. The client-side check only hides prompts from non-admins for UX purposes and should not be relied on for security by itself.
+When `Config.RestrictToAdmins = true`, a player can use the tool if **any** of these pass on the server:
+
+| Check | Example `server.cfg` |
+|---|---|
+| ACE permission `Config.AdminAce` (default `command`) | `add_ace rsgcore.god command allow` |
+| ACE named after a group in `Config.AdminGroups` (`god`, `admin`) | `add_ace rsgcore.god god allow` |
+| ACE `rsgcore.<group>` (e.g. `rsgcore.god`) | `add_ace rsgcore.god rsgcore.god allow` |
+| RSG-Core `RSGCore.Functions.HasPermission(src, group)` | set by rsg-core / txAdmin |
+
+A typical RSG setup that works:
+
+```
+# give the group its permissions
+add_ace rsgcore.god command allow
+add_ace rsgcore.god god allow
+
+# put your licence in that group
+add_principal identifier.license:YOUR_LICENSE rsgcore.god
+```
+
+### Troubleshooting "You do not have permission to use this tool"
+
+1. **`add_principal` alone grants nothing.** It only puts you *in* a group. The group needs `add_ace ... allow` lines (above) or nobody in it has any permissions.
+2. **Restart the server** (or run `refresh` then restart the resource) after editing `server.cfg` — ACE lines are read at startup.
+3. **Check your identifier.** Run `status` (or open txAdmin → Players) and compare the `license:` value with the one in your `add_principal` line. Use `license:`, not `license2:`.
+4. **Check the line order.** `add_ace` / `add_principal` lines should be in `server.cfg` itself (or an `exec`'d file), not inside a resource.
+5. **Test the ACE in the server console:** `test_ace player.<id> command` (replace `<id>` with your in-game server id). It should print `allow`.
+6. **Read the server console.** A refused player logs `[rex-mapeditor] Access denied for <name> (id <id>) ...`. If you see that line, the request reached the server and failed the checks above. If you see nothing, the resource probably failed to start — look for Lua errors when it loads.
+7. **Using a different group name?** Add it to `Config.AdminGroups` in `shared/config.lua`, or change `Config.AdminAce` to an ACE your admins already have.
+8. **Just testing locally?** Set `Config.RestrictToAdmins = false` to allow everyone (not for live servers).
+
+## Security
+
+- Every write event (save, load, delete, world-prop/IMAP removal, export, favorites, library edits) re-checks access on the server (`Config.AdminAce` ACE or an RSG-Core group in `Config.AdminGroups`), validates every argument (types, string lengths, coordinate ranges, model names, max 2,000 props per map) and is rate-limited per player.
+- The client asks the server whether the player has access (`lib.callback`) and only enables the menu, Delete key, delete-aim mode, inspector and IMAP commands for authorized players.
+- Favorites and library updates are sent only to authorized players. Saved data files in `data/` are not shipped to clients.
+- If an admin is refused, the server console prints an "Access denied" line with their name and id.
+- Reading the removal lists (`requestRemovedProps` / `requestImaps`) is intentionally open, since every player needs them applied.
