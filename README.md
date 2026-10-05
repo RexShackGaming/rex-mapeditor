@@ -1,5 +1,7 @@
 # rex-mapeditor
 
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/rexshack)
+
 An in-game prop placement tool for RedM / RSG Framework servers. Browse and spawn static props from an NUI menu, position them with keyboard or mouse controls, remove existing world props, save your layout, and export it to a CMapData (`.ymap`) XML file for CodeWalker.
 
 <img width="1920" height="1080" alt="20261005075837_1" src="https://github.com/user-attachments/assets/b259b01b-0ac3-487f-ac6e-dc7c89c3f55c" />
@@ -166,3 +168,9 @@ add_principal identifier.license:YOUR_LICENSE rsgcore.god
 - Favorites and library updates are sent only to authorized players. Saved data files in `data/` are not shipped to clients.
 - If an admin is refused, the server console prints an "Access denied" line with their name and id.
 - Reading the removal lists (`requestRemovedProps` / `requestImaps`) is intentionally open, since every player needs them applied.
+
+## Support
+
+If you find rex-mapeditor useful, you can support development with a tip:
+
+<a href="https://buymeacoffee.com/rexshack" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="50"></a>
