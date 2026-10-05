@@ -34,7 +34,7 @@ end
 local function CheckVersion()
     local currentVersion = GetResourceMetadata(resourceName, 'version')
     if not currentVersion then
-        printLog('error', locale('version_no_version'))
+        printLog('error', 'Unable to read current resource version from fxmanifest.lua!')
         return
     end
 
@@ -42,12 +42,12 @@ local function CheckVersion()
 
     PerformHttpRequest(versionUrl, function(statusCode, remoteVersion, headers)
         if statusCode ~= 200 then
-            printLog('error', locale('version_check_failed', statusCode))
+            printLog('error', ('Version check failed (HTTP %s). Check your internet or the GitHub URL.'):format(statusCode))
             return
         end
 
         if not remoteVersion or remoteVersion == '' then
-            printLog('error', locale('version_empty'))
+            printLog('error', 'Received empty version data from GitHub.')
             return
         end
 
@@ -55,15 +55,15 @@ local function CheckVersion()
         remoteVersion = remoteVersion:gsub('%s+$', '')
 
         if currentVersion == remoteVersion then
-            printLog('success', locale('version_latest'))
+            printLog('success', 'You are running the latest version!')
             return
         end
 
         if isVersionOutdated(currentVersion, remoteVersion) then
-            printLog('error', locale('version_outdated', remoteVersion))
-            printLog('error', locale('version_download', 'https://portal.cfx.re/assets/granted-assets'))
+            printLog('error', ('OUTDATED! Please update to version %s'):format(remoteVersion))
+            printLog('error', 'Download from: https://github.com/RexShackGaming/'..GetCurrentResourceName()..'')
         else
-            printLog('warning', locale('version_newer', currentVersion, remoteVersion))
+            printLog('warning', ('You are running a newer version (%s) than the remote (%s). Possible dev build?'):format(currentVersion, remoteVersion))
         end
     end, 'GET')
 end
