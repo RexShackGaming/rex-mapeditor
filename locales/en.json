@@ -116,5 +116,12 @@
     "ui_note_no_delete": "Not a streamed object (map geometry / building) - this cannot be removed by deleting the entity.",
     "ui_note_hide": "Map-baked prop - Delete will hide this model at this spot (saved for everyone).",
     "ui_note_networked": "Networked entity - it may be owned by another client or respawned by the server.",
-    "server_access_denied": "[rex-mapeditor] Access denied for %s (id %s) - give them the Config.AdminAce permission or an RSG-Core group from Config.AdminGroups."
+    "server_access_denied": "[rex-mapeditor] Access denied for %s (id %s) - give them the Config.AdminAce permission or an RSG-Core group from Config.AdminGroups.",
+    "world_prop_restored": "World prop restored - it will reappear when the area reloads.",
+    "ui_removed_title": "Removed World Props",
+    "ui_no_removed": "No world props removed on this map.",
+    "ui_restore": "Restore",
+    "ui_show": "Show",
+    "ui_hide": "Hide",
+    "ui_confirm_restore": "Restore \"%s\"? It will be un-removed for everyone on this map."
 }

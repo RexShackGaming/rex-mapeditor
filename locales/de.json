@@ -116,5 +116,12 @@
     "ui_note_no_delete": "Kein gestreamtes Objekt (Kartengeometrie / Gebäude) - kann nicht durch Löschen des Objekts entfernt werden.",
     "ui_note_hide": "In die Karte eingebautes Prop - Entf blendet dieses Modell an dieser Stelle aus (für alle gespeichert).",
     "ui_note_networked": "Vernetztes Objekt - es gehört evtl. einem anderen Client oder wird vom Server neu gespawnt.",
-    "server_access_denied": "[rex-mapeditor] Zugriff verweigert für %s (ID %s) - vergib die Config.AdminAce-Berechtigung oder eine RSG-Core-Gruppe aus Config.AdminGroups."
+    "server_access_denied": "[rex-mapeditor] Zugriff verweigert für %s (ID %s) - vergib die Config.AdminAce-Berechtigung oder eine RSG-Core-Gruppe aus Config.AdminGroups.",
+    "world_prop_restored": "World prop restored - it will reappear when the area reloads.",
+    "ui_removed_title": "Removed World Props",
+    "ui_no_removed": "No world props removed on this map.",
+    "ui_restore": "Restore",
+    "ui_show": "Show",
+    "ui_hide": "Hide",
+    "ui_confirm_restore": "Restore \"%s\"? It will be un-removed for everyone on this map."
 }

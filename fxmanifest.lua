@@ -6,7 +6,7 @@ lua54 'yes'
 name 'rex-mapeditor'
 author 'RexShack'
 description 'In-game prop placement tool with ymap (CMapData) export for RSG Framework'
-version '3.0.0'
+version '3.0.1'
 
 shared_scripts {
     '@ox_lib/init.lua',

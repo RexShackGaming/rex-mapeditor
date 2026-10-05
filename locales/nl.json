@@ -116,5 +116,12 @@
     "ui_note_no_delete": "Geen gestreamd object (kaartgeometrie / gebouw) - kan niet worden verwijderd door de entiteit te verwijderen.",
     "ui_note_hide": "In de kaart ingebakken prop - Delete verbergt dit model op deze plek (opgeslagen voor iedereen).",
     "ui_note_networked": "Genetwerkte entiteit - mogelijk eigendom van een andere client of opnieuw gespawnd door de server.",
-    "server_access_denied": "[rex-mapeditor] Toegang geweigerd voor %s (id %s) - geef de Config.AdminAce-permissie of een RSG-Core-groep uit Config.AdminGroups."
+    "server_access_denied": "[rex-mapeditor] Toegang geweigerd voor %s (id %s) - geef de Config.AdminAce-permissie of een RSG-Core-groep uit Config.AdminGroups.",
+    "world_prop_restored": "World prop restored - it will reappear when the area reloads.",
+    "ui_removed_title": "Removed World Props",
+    "ui_no_removed": "No world props removed on this map.",
+    "ui_restore": "Restore",
+    "ui_show": "Show",
+    "ui_hide": "Hide",
+    "ui_confirm_restore": "Restore \"%s\"? It will be un-removed for everyone on this map."
 }

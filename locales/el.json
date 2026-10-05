@@ -116,5 +116,12 @@
     "ui_note_no_delete": "Δεν είναι streamed αντικείμενο (γεωμετρία χάρτη / κτίριο) - δεν μπορεί να αφαιρεθεί διαγράφοντας την οντότητα.",
     "ui_note_hide": "Prop ενσωματωμένο στον χάρτη - το Delete θα κρύψει αυτό το μοντέλο σε αυτό το σημείο (αποθηκεύεται για όλους).",
     "ui_note_networked": "Δικτυωμένη οντότητα - μπορεί να ανήκει σε άλλο client ή να επανεμφανιστεί από τον server.",
-    "server_access_denied": "[rex-mapeditor] Άρνηση πρόσβασης για %s (id %s) - δώσε την άδεια Config.AdminAce ή μια ομάδα RSG-Core από το Config.AdminGroups."
+    "server_access_denied": "[rex-mapeditor] Άρνηση πρόσβασης για %s (id %s) - δώσε την άδεια Config.AdminAce ή μια ομάδα RSG-Core από το Config.AdminGroups.",
+    "world_prop_restored": "World prop restored - it will reappear when the area reloads.",
+    "ui_removed_title": "Removed World Props",
+    "ui_no_removed": "No world props removed on this map.",
+    "ui_restore": "Restore",
+    "ui_show": "Show",
+    "ui_hide": "Hide",
+    "ui_confirm_restore": "Restore \"%s\"? It will be un-removed for everyone on this map."
 }

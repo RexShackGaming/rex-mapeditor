@@ -339,6 +339,11 @@ local HIDE_RADIUS = Config.ModelHideRadius or 1.5
 local ENFORCE_DISTANCE = 300.0 -- only re-check removals near the player
 local activeRemovals = {} -- { model, x, y, z, coords }
 local activeHides = {}    -- { model, x, y, z }
+local mapRemovals = {}    -- removals persisted for currentMap (shown in the NUI)
+
+local function sendRemovedList()
+    SendNUIMessage({ action = 'removedList', removals = mapRemovals })
+end
 
 local function isSameRemoval(a, model, x, y, z)
     if a.model ~= model then return false end
@@ -370,6 +375,78 @@ local function hideMapModel(model, x, y, z)
     return false
 end
 
+-- Undo a removal locally: stop enforcing it and lift any model hide.
+-- A deleted streamed entity comes back the next time the area streams in.
+local function unapplyWorldPropRemoval(model, x, y, z)
+    local wasHidden = false
+    for i = #activeRemovals, 1, -1 do
+        if isSameRemoval(activeRemovals[i], model, x, y, z) then table.remove(activeRemovals, i) end
+    end
+    for i = #activeHides, 1, -1 do
+        local h = activeHides[i]
+        if isSameRemoval(h, model, x, y, z) then
+            if type(RemoveModelHide) == 'function' then
+                pcall(RemoveModelHide, h.x + 0.0, h.y + 0.0, h.z + 0.0, HIDE_RADIUS + 0.0, h.model, true)
+            end
+            table.remove(activeHides, i)
+            wasHidden = true
+        end
+    end
+    return wasHidden
+end
+
+-- Local stand-in copies for restored props whose entity was deleted, so they
+-- reappear instantly instead of only after the area re-streams. Once the
+-- player moves out of streaming range the copy is dropped and the game's own
+-- object takes over when the area loads again.
+local restoredCopies = {} -- { entity, model, x, y, z, coords }
+local COPY_RELEASE_DISTANCE = 350.0
+
+local function deleteRestoredCopies(model, x, y, z)
+    for i = #restoredCopies, 1, -1 do
+        local c = restoredCopies[i]
+        if not model or isSameRemoval(c, model, x, y, z) then
+            if DoesEntityExist(c.entity) then DeleteEntity(c.entity) end
+            table.remove(restoredCopies, i)
+        end
+    end
+end
+
+local function respawnRestoredProp(model, x, y, z, rx, ry, rz)
+    CreateThread(function()
+        Wait(1000) -- give the engine a moment in case the original streams back on its own
+        if GetClosestObjectOfType(x, y, z, REMOVAL_MATCH_RADIUS, model, false, false, false) ~= 0 then return end
+        if not IsModelValid(model) then return end
+        RequestModel(model)
+        local timeout = GetGameTimer() + 5000
+        while not HasModelLoaded(model) and GetGameTimer() < timeout do Wait(50) end
+        if not HasModelLoaded(model) then return end
+        local entity = CreateObject(model, x, y, z, false, false, false) -- local only: every client spawns its own
+        SetEntityCoordsNoOffset(entity, x, y, z, false, false, false)
+        SetEntityRotation(entity, (rx or 0.0) + 0.0, (ry or 0.0) + 0.0, (rz or 0.0) + 0.0, 2, true)
+        FreezeEntityPosition(entity, true)
+        SetEntityVisible(entity, true)
+        SetModelAsNoLongerNeeded(model)
+        restoredCopies[#restoredCopies + 1] = { entity = entity, model = model, x = x, y = y, z = z, coords = vector3(x, y, z) }
+    end)
+end
+
+CreateThread(function()
+    while true do
+        Wait(5000)
+        if #restoredCopies > 0 then
+            local pos = GetEntityCoords(PlayerPedId())
+            for i = #restoredCopies, 1, -1 do
+                local c = restoredCopies[i]
+                if #(pos - c.coords) > COPY_RELEASE_DISTANCE or not DoesEntityExist(c.entity) then
+                    if DoesEntityExist(c.entity) then DeleteEntity(c.entity) end
+                    table.remove(restoredCopies, i)
+                end
+            end
+        end
+    end
+end)
+
 local function clearModelHides()
     if type(RemoveModelHide) == 'function' then
         for _, h in ipairs(activeHides) do
@@ -383,6 +460,7 @@ end
 -- handle the player aimed at, which is more reliable than re-finding it.
 local function applyWorldPropRemoval(model, x, y, z, knownEntity)
     if not model or model == 0 then return false end
+    deleteRestoredCopies(model, x, y, z)
     local removed = false
     if knownEntity and knownEntity ~= 0 and DoesEntityExist(knownEntity) then
         SetEntityAsMissionEntity(knownEntity, true, true)
@@ -451,8 +529,10 @@ local function tryDeleteAimedProp(preferredEntity)
         return
     end
     local coords = GetEntityCoords(entityHit)
+    local rot = GetEntityRotation(entityHit, 2)
+    local kind = GetEntityType(entityHit) == 3 and 'object' or 'map'
     local removed = applyWorldPropRemoval(model, coords.x, coords.y, coords.z, entityHit)
-    TriggerServerEvent('rex-mapeditor:server:removeWorldProp', currentMap, model, coords.x, coords.y, coords.z)
+    TriggerServerEvent('rex-mapeditor:server:removeWorldProp', currentMap, model, coords.x, coords.y, coords.z, rot.x, rot.y, rot.z, kind)
     notify(locale(removed and 'world_prop_removed' or 'world_prop_remove_delayed'), removed and 'success' or 'warning')
 end
 
@@ -566,6 +646,14 @@ nui('close', closeMenu)
 nui('spawnProp', function(data) spawnProp(data.model) end)
 nui('deleteProp', function(data) removePropByLocalId(tonumber(data.localId)) end)
 nui('teleportTo', function(data) teleportToLocalId(tonumber(data.localId)) end)
+nui('teleportToRemoval', function(data)
+    local r = mapRemovals[tonumber(data.index) or 0]
+    if r then SetEntityCoords(PlayerPedId(), r.x, r.y, r.z + 1.0, false, false, false, false) end
+end)
+nui('restoreRemoval', function(data)
+    local r = mapRemovals[tonumber(data.index) or 0]
+    if r then TriggerServerEvent('rex-mapeditor:server:restoreWorldProp', currentMap, r.model, r.x, r.y, r.z) end
+end)
 
 -- Placement Panel buttons (mirror the keybinds)
 nui('placementMove', function(data) nudgeGrabbed(data.dir, data.fast) end)
@@ -637,13 +725,36 @@ end)
 RegisterNetEvent('rex-mapeditor:client:worldPropRemoved', function(mapname, model, x, y, z)
     if mapname ~= currentMap then return end
     applyWorldPropRemoval(model, x, y, z)
+    local known = false
+    for _, r in ipairs(mapRemovals) do
+        if isSameRemoval(r, model, x, y, z) then known = true break end
+    end
+    if not known then mapRemovals[#mapRemovals + 1] = { model = model, x = x, y = y, z = z } end
+    sendRemovedList()
+end)
+
+RegisterNetEvent('rex-mapeditor:client:worldPropRestored', function(mapname, model, x, y, z, rx, ry, rz, kind)
+    if mapname ~= currentMap then return end
+    -- Every removal also creates a model hide, so lifting the hide only brings
+    -- back map-baked props. Deleted objects (and older entries with no kind
+    -- recorded) get a local stand-in if nothing is found at the spot.
+    unapplyWorldPropRemoval(model, x, y, z)
+    if kind ~= 'map' then respawnRestoredProp(model, x, y, z, rx, ry, rz) end
+    for i = #mapRemovals, 1, -1 do
+        if isSameRemoval(mapRemovals[i], model, x, y, z) then table.remove(mapRemovals, i) end
+    end
+    sendRemovedList()
+    if hasAccess then notify(locale('world_prop_restored'), 'success') end
 end)
 
 RegisterNetEvent('rex-mapeditor:client:removedPropsList', function(mapname, removals)
     if mapname ~= currentMap then return end
+    mapRemovals = {}
     for _, r in ipairs(removals) do
         applyWorldPropRemoval(r.model, r.x, r.y, r.z)
+        mapRemovals[#mapRemovals + 1] = { model = r.model, x = r.x, y = r.y, z = r.z }
     end
+    sendRemovedList()
     if hasAccess and #removals > 0 then
         notify(locale('removed_props_applied', #removals, mapname), 'inform')
     end
@@ -864,5 +975,6 @@ AddEventHandler('onResourceStop', function(resourceName)
     SetNuiFocusKeepInput(false)
     SetNuiFocus(false, false)
     clearModelHides()
+    deleteRestoredCopies()
     clearImapRemovals()
 end)

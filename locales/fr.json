@@ -116,5 +116,12 @@
     "ui_note_no_delete": "Pas un objet streamé (géométrie de carte / bâtiment) - impossible de le retirer en supprimant l'entité.",
     "ui_note_hide": "Prop intégré à la carte - Suppr masquera ce modèle à cet endroit (sauvegardé pour tous).",
     "ui_note_networked": "Entité en réseau - elle peut appartenir à un autre client ou être réapparue par le serveur.",
-    "server_access_denied": "[rex-mapeditor] Accès refusé pour %s (id %s) - accordez la permission Config.AdminAce ou un groupe RSG-Core de Config.AdminGroups."
+    "server_access_denied": "[rex-mapeditor] Accès refusé pour %s (id %s) - accordez la permission Config.AdminAce ou un groupe RSG-Core de Config.AdminGroups.",
+    "world_prop_restored": "World prop restored - it will reappear when the area reloads.",
+    "ui_removed_title": "Removed World Props",
+    "ui_no_removed": "No world props removed on this map.",
+    "ui_restore": "Restore",
+    "ui_show": "Show",
+    "ui_hide": "Hide",
+    "ui_confirm_restore": "Restore \"%s\"? It will be un-removed for everyone on this map."
 }

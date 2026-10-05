@@ -116,5 +116,12 @@
     "ui_note_no_delete": "Não é um objeto em streaming (geometria do mapa / construção) - não pode ser removido apagando a entidade.",
     "ui_note_hide": "Prop embutido no mapa - Delete ocultará este modelo neste local (salvo para todos).",
     "ui_note_networked": "Entidade em rede - pode pertencer a outro cliente ou ser recriada pelo servidor.",
-    "server_access_denied": "[rex-mapeditor] Acesso negado para %s (id %s) - dê a permissão Config.AdminAce ou um grupo do RSG-Core de Config.AdminGroups."
+    "server_access_denied": "[rex-mapeditor] Acesso negado para %s (id %s) - dê a permissão Config.AdminAce ou um grupo do RSG-Core de Config.AdminGroups.",
+    "world_prop_restored": "World prop restored - it will reappear when the area reloads.",
+    "ui_removed_title": "Removed World Props",
+    "ui_no_removed": "No world props removed on this map.",
+    "ui_restore": "Restore",
+    "ui_show": "Show",
+    "ui_hide": "Hide",
+    "ui_confirm_restore": "Restore \"%s\"? It will be un-removed for everyone on this map."
 }

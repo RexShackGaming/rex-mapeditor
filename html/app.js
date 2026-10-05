@@ -11,6 +11,7 @@ const fastToggle = document.getElementById('fastToggle');
 let spooniPropList = [];    // from spooni_props.json (huge, only searched)
 let spooniLoaded = false;
 let currentPlaced = [];
+let currentRemovals = []; // world props removed for the current map [{model(hash), x, y, z}]
 let favorites = [];         // [{model, label}], persisted server-side, shared by all tool users
 let favoriteModels = new Set();
 let customAdditions = [];   // [{model, label, category}], user-added library props, persisted server-side, shared by all tool users
@@ -376,6 +377,60 @@ function renderPlacedList() {
   });
 }
 
+const removedList = document.getElementById('removedList');
+const toggleRemovedBtn = document.getElementById('toggleRemovedBtn');
+
+function renderRemovedList() {
+  document.getElementById('removedCount').textContent = currentRemovals.length;
+  toggleRemovedBtn.textContent = t(removedList.classList.contains('hidden') ? 'ui_show' : 'ui_hide');
+  removedList.innerHTML = '';
+  if (currentRemovals.length === 0) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'opacity:0.5; font-size:12px;';
+    empty.textContent = t('ui_no_removed');
+    removedList.appendChild(empty);
+    return;
+  }
+  currentRemovals.forEach((r, i) => {
+    const unsigned = (r.model >>> 0);
+    const name = (hashNameMap && hashNameMap.get(unsigned)) || `0x${unsigned.toString(16).toUpperCase()}`;
+    const row = document.createElement('div');
+    row.className = 'placedItem';
+    const info = document.createElement('div');
+    info.className = 'info';
+    info.textContent = `${name}  (${r.x.toFixed(2)}, ${r.y.toFixed(2)}, ${r.z.toFixed(2)})`;
+    info.title = `${r.model}`;
+    const actions = document.createElement('div');
+    actions.className = 'actions';
+
+    // Lua arrays are 1-based
+    const tpBtn = document.createElement('button');
+    tpBtn.textContent = t('ui_teleport');
+    tpBtn.onclick = () => post('teleportToRemoval', { index: i + 1 });
+
+    const restoreBtn = document.createElement('button');
+    restoreBtn.textContent = t('ui_restore');
+    restoreBtn.className = 'success';
+    restoreBtn.onclick = () => {
+      showConfirm(t('ui_confirm_restore', name)).then((ok) => {
+        if (ok) post('restoreRemoval', { index: i + 1 });
+      });
+    };
+
+    actions.appendChild(tpBtn);
+    actions.appendChild(restoreBtn);
+    row.appendChild(info);
+    row.appendChild(actions);
+    removedList.appendChild(row);
+  });
+}
+
+toggleRemovedBtn.onclick = () => {
+  removedList.classList.toggle('hidden');
+  if (!removedList.classList.contains('hidden')) ensureHashMap().then(renderRemovedList);
+  else renderRemovedList();
+};
+
 document.getElementById('spawnCustomBtn').onclick = () => {
   const val = searchBox.value.trim();
   if (!val) return;
@@ -450,6 +505,7 @@ window.addEventListener('message', (event) => {
       applyLocales();
       renderCategories(searchBox.value);
       renderPlacedList();
+      renderRemovedList();
       break;
     case 'close':
       app.classList.add('hidden');
@@ -459,6 +515,10 @@ window.addEventListener('message', (event) => {
       break;
     case 'show':
       app.classList.remove('hidden');
+      break;
+    case 'removedList':
+      currentRemovals = data.removals || [];
+      renderRemovedList();
       break;
     case 'refreshList':
       currentPlaced = data.props;

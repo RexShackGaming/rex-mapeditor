@@ -116,5 +116,12 @@
     "ui_note_no_delete": "ストリーミングオブジェクトではありません (マップのジオメトリ / 建物)。エンティティ削除では取り除けません。",
     "ui_note_hide": "マップに組み込まれたプロップ - Delete でこの位置のモデルを非表示にします (全員に保存)。",
     "ui_note_networked": "ネットワークエンティティ - 他のクライアントが所有しているか、サーバーによって再生成される可能性があります。",
-    "server_access_denied": "[rex-mapeditor] %s (id %s) のアクセスを拒否しました - Config.AdminAce の権限か Config.AdminGroups の RSG-Core グループを付与してください。"
+    "server_access_denied": "[rex-mapeditor] %s (id %s) のアクセスを拒否しました - Config.AdminAce の権限か Config.AdminGroups の RSG-Core グループを付与してください。",
+    "world_prop_restored": "World prop restored - it will reappear when the area reloads.",
+    "ui_removed_title": "Removed World Props",
+    "ui_no_removed": "No world props removed on this map.",
+    "ui_restore": "Restore",
+    "ui_show": "Show",
+    "ui_hide": "Hide",
+    "ui_confirm_restore": "Restore \"%s\"? It will be un-removed for everyone on this map."
 }

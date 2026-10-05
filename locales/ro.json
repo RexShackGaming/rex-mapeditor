@@ -116,5 +116,12 @@
     "ui_note_no_delete": "Nu este un obiect în streaming (geometrie de hartă / clădire) - nu poate fi eliminat prin ștergerea entității.",
     "ui_note_hide": "Prop integrat în hartă - Delete va ascunde acest model în acest loc (salvat pentru toți).",
     "ui_note_networked": "Entitate în rețea - poate aparține altui client sau poate fi regenerată de server.",
-    "server_access_denied": "[rex-mapeditor] Acces refuzat pentru %s (id %s) - acordă permisiunea Config.AdminAce sau un grup RSG-Core din Config.AdminGroups."
+    "server_access_denied": "[rex-mapeditor] Acces refuzat pentru %s (id %s) - acordă permisiunea Config.AdminAce sau un grup RSG-Core din Config.AdminGroups.",
+    "world_prop_restored": "World prop restored - it will reappear when the area reloads.",
+    "ui_removed_title": "Removed World Props",
+    "ui_no_removed": "No world props removed on this map.",
+    "ui_restore": "Restore",
+    "ui_show": "Show",
+    "ui_hide": "Hide",
+    "ui_confirm_restore": "Restore \"%s\"? It will be un-removed for everyone on this map."
 }

@@ -318,7 +318,7 @@ end)
 -- ---------------------------------------------------------------------
 -- Persistent removal of EXISTING base-game world props
 -- ---------------------------------------------------------------------
-RegisterNetEvent('rex-mapeditor:server:removeWorldProp', function(mapname, model, x, y, z)
+RegisterNetEvent('rex-mapeditor:server:removeWorldProp', function(mapname, model, x, y, z, rx, ry, rz, kind)
     local src = source
     if not guard(src, 'removeWorldProp') then return end
     model = math.tointeger(tonumber(model))
@@ -332,11 +332,32 @@ RegisterNetEvent('rex-mapeditor:server:removeWorldProp', function(mapname, model
         if isSameRemoval(r, model, x, y, z) then tracked = true break end
     end
     if not tracked then
-        removals[#removals + 1] = { model = model, x = x, y = y, z = z }
+        removals[#removals + 1] = { model = model, x = x, y = y, z = z, rx = num(rx) or 0.0, ry = num(ry) or 0.0, rz = num(rz) or 0.0,
+            kind = (kind == 'object' or kind == 'map') and kind or nil }
         writeJson(removedPath(mapname), removals)
     end
 
     TriggerClientEvent('rex-mapeditor:client:worldPropRemoved', -1, mapname, model, x, y, z)
+end)
+
+-- Restore a previously removed world prop (undo a removal).
+RegisterNetEvent('rex-mapeditor:server:restoreWorldProp', function(mapname, model, x, y, z)
+    local src = source
+    if not guard(src, 'restoreWorldProp') then return end
+    model = math.tointeger(tonumber(model))
+    x, y, z = num(x), num(y), num(z)
+    if not model or not x or not y or not z then return end
+    mapname = sanitizeMapName(mapname)
+
+    local removals, out, found = readJson(removedPath(mapname), {}), {}, nil
+    for _, r in ipairs(removals) do
+        if not found and isSameRemoval(r, model, x, y, z) then found = r else out[#out + 1] = r end
+    end
+    if not found then return end
+    writeJson(removedPath(mapname), out)
+    -- Broadcast the stored entry (exact coords + rotation, if recorded).
+    TriggerClientEvent('rex-mapeditor:client:worldPropRestored', -1, mapname, found.model, found.x, found.y, found.z,
+        found.rx, found.ry, found.rz, found.kind)
 end)
 
 -- Read-only: every player needs these applied, so no permission check.

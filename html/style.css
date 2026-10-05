@@ -284,3 +284,9 @@ button.danger:hover { border-color: var(--rdr-cost-over); }
 .inspGrid span:nth-child(odd) { color: var(--rdr-muted); text-transform: uppercase; letter-spacing: 1.5px; font-size: 10px; padding-top: 2px; }
 .inspGrid span:nth-child(even) { font-family: 'Roboto', monospace; word-break: break-all; }
 .inspNote { margin-top: 10px; font-size: 11.5px; font-style: italic; color: var(--rdr-muted); line-height: 1.5; }
+
+/* Removed world props list */
+.removedHeader { display: flex; justify-content: space-between; align-items: center; font-size: 12px; margin-top: 4px; }
+.removedHeader button { width: auto; margin: 0; padding: 3px 9px; font-size: 11px; }
+.removedList { flex: 0 1 auto; max-height: 180px; }
+.removedList.hidden { display: none; }
