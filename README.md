@@ -2,6 +2,8 @@
 
 An in-game prop placement tool for RedM / RSG Framework servers. Browse and spawn static props from an NUI menu, position them with keyboard or mouse controls, remove existing world props, save your layout, and export it to a CMapData (`.ymap`) XML file for CodeWalker.
 
+<img width="1920" height="1080" alt="20261005075837_1" src="https://github.com/user-attachments/assets/b259b01b-0ac3-487f-ac6e-dc7c89c3f55c" />
+
 ## Features
 
 - **Prop Library** — shows your **Favorites** and custom library entries on open. Type 2+ characters to search the full 14,856-prop library (`html/props.json`, capped at 250 results per search). Type any exact model name or numeric hash and click **Spawn typed model** to spawn something that isn't listed.
